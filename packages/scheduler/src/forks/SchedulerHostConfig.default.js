@@ -50,13 +50,18 @@ const localCancelAnimationFrame =
 // continues to load in the background. So we also schedule a 'setTimeout' as
 // a fallback.
 // TODO: Need a better heuristic for backgrounded work.
+
+// requestAnimationFrame在切换tab之后不再运行，如果切换tab之后
+// 我们还想让他在后台继续运行，应使用setTimeout作为兜底操作
 const ANIMATION_FRAME_TIMEOUT = 100;
 let rAFID;
 let rAFTimeoutID;
 const requestAnimationFrameWithTimeout = function(callback) {
   // schedule rAF and also a setTimeout
   rAFID = localRequestAnimationFrame(function(timestamp) {
-    // cancel the setTimeout
+    // timestamp 实际上就是performance.now()
+    // cancel the setTimeout, 如果RAF好使就不使用Timeout
+    // callback实际就是下面的animationTick函数
     localClearTimeout(rAFTimeoutID);
     callback(timestamp);
   });
@@ -67,6 +72,18 @@ const requestAnimationFrameWithTimeout = function(callback) {
   }, ANIMATION_FRAME_TIMEOUT);
 };
 
+// 兼容操作
+/**
+ * 
+ * performance.now() 与 Date.now() 不同的是，返回了以微秒（百万分之一秒）为单位的时间，更加精准。
+
+并且与 Date.now() 会受系统程序执行阻塞的影响不同，performance.now() 的时间是以恒定速率递增的，不受系统时间的影响（系统时间可被人为或软件调整）。
+
+注意Date.now() 输出的是 UNIX 时间，即距离 1970 的时间，而 performance.now() 输出的是相对于 time origin(页面初始化: https://developer.mozilla.org/en-US/docs/Web/API/DOMHighResTimeStamp#The_time_origin) 的时间。
+
+使用 Date.now() 的差值并非绝对精确，因为计算时间时受系统限制（可能阻塞）。但使用 performance.now() 的差值，并不影响我们计算程序执行的精确时间。
+ * 
+ *  */
 if (hasNativePerformanceNow) {
   const Performance = performance;
   getCurrentTime = function() {
@@ -74,6 +91,8 @@ if (hasNativePerformanceNow) {
   };
 } else {
   getCurrentTime = function() {
+    // 该方法在 ECMA-262 第五版中被标准化, Date.now() === new Date().getTime();
+    // 出处 https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Date/now#Compatibility
     return localDate.now();
   };
 }
@@ -81,6 +100,8 @@ if (hasNativePerformanceNow) {
 if (
   // If Scheduler runs in a non-DOM environment, it falls back to a naive
   // implementation using setTimeout.
+
+  // 如果运行在一个无DOM环境, 退回到使用setTimeout
   typeof window === 'undefined' ||
   // Check if MessageChannel is supported, too.
   typeof MessageChannel !== 'function'
@@ -100,6 +121,8 @@ if (
   requestHostCallback = function(cb, ms) {
     if (_callback !== null) {
       // Protect against re-entrancy.
+      // 不看源码不知道setTimeout还有第三个参数
+      // 下面指的是时间到了之后把cb作为参数传入requestHostCallback
       setTimeout(requestHostCallback, 0, cb);
     } else {
       _callback = cb;
@@ -132,8 +155,8 @@ if (
     }
   }
 
-  let scheduledHostCallback = null;
-  let isMessageEventScheduled = false;
+  let scheduledHostCallback = null; // flushwork
+  let isMessageEventScheduled = false; // 
   let timeoutTime = -1;
 
   let isAnimationFrameScheduled = false;
@@ -171,7 +194,9 @@ if (
   };
 
   // We use the postMessage trick to defer idle work until after the repaint.
+  // 我们使用postMessage来将空闲工作推迟到重绘之后
   const channel = new MessageChannel();
+  // Channel Messaging API的Channel Messaging接口允许我们创建一个新的消息通道，并通过它的两个MessagePort 属性(port1, port2)发送数据。
   const port = channel.port2;
   channel.port1.onmessage = function(event) {
     isMessageEventScheduled = false;
@@ -184,15 +209,19 @@ if (
     const currentTime = getCurrentTime();
 
     let didTimeout = false;
+    // 当前帧过期
     if (frameDeadline - currentTime <= 0) {
       // There's no time left in this idle period. Check if the callback has
       // a timeout and whether it's been exceeded.
+      // 已经执行过了
       if (prevTimeoutTime !== -1 && prevTimeoutTime <= currentTime) {
         // Exceeded the timeout. Invoke the callback even though there's no
         // time left.
+        // 任务过期
         didTimeout = true;
       } else {
         // No timeout.
+        // 没有执行过
         if (!isAnimationFrameScheduled) {
           // Schedule another animation callback so we retry later.
           isAnimationFrameScheduled = true;
@@ -232,6 +261,8 @@ if (
       return;
     }
 
+    // rafTime raf执行时的时间
+    // frameDeadline = rafTime + activeFrameTime(当前刷新率)
     let nextFrameTime = rafTime - frameDeadline + activeFrameTime;
     if (
       nextFrameTime < activeFrameTime &&
@@ -258,15 +289,20 @@ if (
     frameDeadline = rafTime + activeFrameTime;
     if (!isMessageEventScheduled) {
       isMessageEventScheduled = true;
+      // postMessage触发任务链表队列
       port.postMessage(undefined);
     }
   };
 
+  // absoluteTimeout => 链表node的过期时间(expirationTime)
+  // callback => flushWork函数
   requestHostCallback = function(callback, absoluteTimeout) {
     scheduledHostCallback = callback;
     timeoutTime = absoluteTimeout;
     if (isFlushingHostCallback || absoluteTimeout < 0) {
       // Don't wait for the next frame. Continue working ASAP, in a new event.
+      // 如果absoluteTimeout时间小于1, 则此次work为ImmediatePriority优先级
+      // 应该立即执行
       port.postMessage(undefined);
     } else if (!isAnimationFrameScheduled) {
       // If rAF didn't already schedule one, we need to schedule a frame.

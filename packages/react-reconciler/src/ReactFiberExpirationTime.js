@@ -22,7 +22,7 @@ export type ExpirationTime = number;
 
 export const NoWork = 0;
 export const Never = 1;
-export const Sync = MAX_SIGNED_31_BIT_INT;
+export const Sync = MAX_SIGNED_31_BIT_INT; // 32位系统的V8中的最大整数
 export const Batched = Sync - 1;
 
 const UNIT_SIZE = 10;

@@ -449,6 +449,16 @@ ReactRoot.prototype.createBatch = function(): Batch {
  * @return {boolean} True if the DOM is a valid DOM node.
  * @internal
  */
+/**
+ * nodeType 属性返回节点类型。
+  如果节点是一个元素节点，nodeType 属性返回 1。
+
+  如果节点是属性节点, nodeType 属性返回 2。
+
+  如果节点是一个文本节点，nodeType 属性返回 3。
+
+  如果节点是一个注释节点，nodeType 属性返回 8。
+ */
 function isValidContainer(node) {
   return !!(
     node &&
@@ -501,6 +511,7 @@ function legacyCreateRootFromDOMContainer(
     let warned = false;
     let rootSibling;
     while ((rootSibling = container.lastChild)) {
+      // 删除跟节点内部元素
       if (__DEV__) {
         if (
           !warned &&
@@ -535,6 +546,10 @@ function legacyCreateRootFromDOMContainer(
   return new ReactSyncRoot(container, LegacyRoot, shouldHydrate);
 }
 
+// 首次渲染, partComponet为null
+// children为使用React编写的组件
+// container为真实DOM元素
+// forceHydrate写死的false, true时为服务端渲染
 function legacyRenderSubtreeIntoContainer(
   parentComponent: ?React$Component<any, any>,
   children: ReactNodeList,
@@ -552,12 +567,12 @@ function legacyRenderSubtreeIntoContainer(
   let root: _ReactSyncRoot = (container._reactRootContainer: any);
   let fiberRoot;
   if (!root) {
-    // Initial mount
+    // Initial mount 初始化容器
     root = container._reactRootContainer = legacyCreateRootFromDOMContainer(
       container,
       forceHydrate,
     );
-    fiberRoot = root._internalRoot;
+    fiberRoot = root._internalRoot; // Fiber root
     if (typeof callback === 'function') {
       const originalCallback = callback;
       callback = function() {

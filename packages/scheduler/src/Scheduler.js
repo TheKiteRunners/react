@@ -57,13 +57,17 @@ var isHostCallbackScheduled = false;
 function scheduleHostCallbackIfNeeded() {
   if (isPerformingWork) {
     // Don't schedule work yet; wait until the next time we yield.
+    // 有个work正在执行
     return;
   }
+
   if (firstCallbackNode !== null) {
     // Schedule the host callback using the earliest expiration in the list.
+    // firstCallbackNode的过期时间是最早的
     var expirationTime = firstCallbackNode.expirationTime;
     if (isHostCallbackScheduled) {
       // Cancel the existing host callback.
+      // 取消存在的回调函数
       cancelHostCallback();
     } else {
       isHostCallbackScheduled = true;
@@ -72,6 +76,7 @@ function scheduleHostCallbackIfNeeded() {
   }
 }
 
+// 更新第一个任务
 function flushFirstCallback() {
   const currentlyFlushingCallback = firstCallbackNode;
 
@@ -80,20 +85,27 @@ function flushFirstCallback() {
   var next = firstCallbackNode.next;
   if (firstCallbackNode === next) {
     // This is the last callback in the list.
+    // 由于是双向链表, 这种情况就是现在只剩一个节点了
+    // 全部设置为null
     firstCallbackNode = null;
     next = null;
   } else {
+    // 链表中删除firstCallbackNode
     var lastCallbackNode = firstCallbackNode.previous;
     firstCallbackNode = lastCallbackNode.next = next;
     next.previous = lastCallbackNode;
   }
 
+  // 从链表中彻底剥离
   currentlyFlushingCallback.next = currentlyFlushingCallback.previous = null;
 
   // Now it's safe to call the callback.
+  // 获取属性
   var callback = currentlyFlushingCallback.callback;
   var expirationTime = currentlyFlushingCallback.expirationTime;
   var priorityLevel = currentlyFlushingCallback.priorityLevel;
+
+  // 临时保存
   var previousPriorityLevel = currentPriorityLevel;
   var previousExpirationTime = currentExpirationTime;
   currentPriorityLevel = priorityLevel;
@@ -108,12 +120,14 @@ function flushFirstCallback() {
   } catch (error) {
     throw error;
   } finally {
+    // 还原
     currentPriorityLevel = previousPriorityLevel;
     currentExpirationTime = previousExpirationTime;
   }
 
   // A callback may return a continuation. The continuation should be scheduled
   // with the same priority and expiration as the just-finished callback.
+  // 如果返回的是函数, 则和刚刚完成的回调函数具有相同的过期时间和优先级
   if (typeof continuationCallback === 'function') {
     var continuationNode: CallbackNode = {
       callback: continuationCallback,
@@ -127,6 +141,7 @@ function flushFirstCallback() {
     // almost the same as the code in `scheduleCallback`, except the callback
     // is inserted into the list *before* callbacks of equal expiration instead
     // of after.
+    // 和scheduleCallback函数一个逻辑, 只有一点不同, `callback`在等于到期的回调之前插入到列表中而不是插入到之后
     if (firstCallbackNode === null) {
       // This is the first callback in the list.
       firstCallbackNode = continuationNode.next = continuationNode.previous = continuationNode;
@@ -146,6 +161,7 @@ function flushFirstCallback() {
       if (nextAfterContinuation === null) {
         // No equal or lower priority callback was found, which means the new
         // callback is the lowest priority callback in the list.
+        // 没有找到相等或者低优先级的callback, 因此放到第一个
         nextAfterContinuation = firstCallbackNode;
       } else if (nextAfterContinuation === firstCallbackNode) {
         // The new callback is the highest priority callback in the list.
@@ -153,6 +169,7 @@ function flushFirstCallback() {
         scheduleHostCallbackIfNeeded();
       }
 
+      // 插入操作
       var previous = nextAfterContinuation.previous;
       previous.next = nextAfterContinuation.previous = continuationNode;
       continuationNode.next = nextAfterContinuation;
@@ -168,6 +185,7 @@ function flushWork(didUserCallbackTimeout) {
   }
 
   // We'll need a new host callback the next time work is scheduled.
+  // 安排callback完成了
   isHostCallbackScheduled = false;
 
   isPerformingWork = true;
@@ -184,6 +202,8 @@ function flushWork(didUserCallbackTimeout) {
         // Read the current time. Flush all the callbacks that expire at or
         // earlier than that time. Then read the current time again and repeat.
         // This optimizes for as few performance.now calls as possible.
+        // 读取当前时间, 刷新在该时间之前或过期的所有回调
+        // 然后再次读取当前时间并重复。这可以优化尽可能少的`performance.now`调用。
         var currentTime = getCurrentTime();
         if (firstCallbackNode.expirationTime <= currentTime) {
           do {
@@ -199,6 +219,7 @@ function flushWork(didUserCallbackTimeout) {
       }
     } else {
       // Keep flushing callbacks until we run out of time in the frame.
+      // 继续刷新回调，直到我们在帧中耗尽时间。
       if (firstCallbackNode !== null) {
         do {
           if (enableSchedulerDebugging && isSchedulerPaused) {
@@ -299,6 +320,7 @@ function unstable_wrapCallback(callback) {
   };
 }
 
+// 组成双向链表, 开始安排任务
 function unstable_scheduleCallback(
   priorityLevel,
   callback,
@@ -307,6 +329,7 @@ function unstable_scheduleCallback(
   var startTime =
     currentEventStartTime !== -1 ? currentEventStartTime : getCurrentTime();
 
+  // 过期时间
   var expirationTime;
   if (
     typeof deprecated_options === 'object' &&
@@ -316,6 +339,7 @@ function unstable_scheduleCallback(
     // FIXME: Remove this branch once we lift expiration times out of React.
     expirationTime = startTime + deprecated_options.timeout;
   } else {
+    // 根据不同的优先级, 赋予不同的过期时间
     switch (priorityLevel) {
       case ImmediatePriority:
         expirationTime = startTime + IMMEDIATE_PRIORITY_TIMEOUT;
@@ -365,9 +389,11 @@ function unstable_scheduleCallback(
     if (next === null) {
       // No callback with a later expiration was found, which means the new
       // callback has the latest expiration in the list.
+      // 列表中新插入的节点具有最大的到期时间, 插入最后
       next = firstCallbackNode;
     } else if (next === firstCallbackNode) {
       // The new callback has the earliest expiration in the entire list.
+      // 新插入的节点具有最小的到期时间, 插在最前面
       firstCallbackNode = newNode;
       scheduleHostCallbackIfNeeded();
     }

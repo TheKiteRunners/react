@@ -178,7 +178,7 @@ export function updateContainerAtExpirationTime(
   callback: ?Function,
 ) {
   // TODO: If this is a nested container, this won't be the root.
-  const current = container.current;
+  const current = container.current; // Fiber Node
 
   if (__DEV__) {
     if (ReactFiberInstrumentation.debugTool) {
@@ -297,13 +297,16 @@ export function createContainer(
   return createFiberRoot(containerInfo, tag, hydrate);
 }
 
+// element为使用React编写的组件
+// container为fiber root
+// 首次渲染, partComponet为null
 export function updateContainer(
   element: ReactNodeList,
   container: OpaqueRoot,
   parentComponent: ?React$Component<any, any>,
   callback: ?Function,
 ): ExpirationTime {
-  const current = container.current;
+  const current = container.current; // fiber node
   const currentTime = requestCurrentTime();
   if (__DEV__) {
     // $FlowExpectedError - jest isn't a global, and isn't recognized outside of tests

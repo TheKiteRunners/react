@@ -251,10 +251,12 @@ let interruptedBy: Fiber | null = null;
 // time). However, if two updates are scheduled within the same event, we
 // should treat their start times as simultaneous, even if the actual clock
 // time has advanced between the first and second call.
+//通过添加到当前时间（开始时间）来计算到期时间。 但是，如果在同一事件中安排了两次更新，我们应将它们的开始时间视为同步，即使第一次和第二次呼叫之间的实际时钟时间已提前。
 
 // In other words, because expiration times determine how updates are batched,
 // we want all updates of like priority that occur within the same event to
 // receive the same expiration time. Otherwise we get tearing.
+// 换句话说，由于到期时间决定了批量更新的方式，因此我们希望在同一事件中发生的所有类似优先级的更新都会收到相同的到期时间。 否则我们会撕裂。
 let currentEventTime: ExpirationTime = NoWork;
 
 export function requestCurrentTime() {
