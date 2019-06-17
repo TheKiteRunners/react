@@ -80,6 +80,8 @@ let initialTimeMs: number = Scheduler_now();
 // timestamp. In that case, subtract the module initialization time to simulate
 // the behavior of performance.now and keep our times small enough to fit
 // within 32 bits.
+// 如果初始时间戳相当小，请直接使用Scheduler的`now`。 对于支持`performance.now`的现代浏览器来说就是这种情况。 
+// 在旧版浏览器中，Scheduler回退到“Date.now”，它返回一个Unix时间戳。 在这种情况下，减去模块初始化时间以模拟performance.now的行为并保持我们的时间足够小以适应32位。
 // TODO: Consider lifting this into Scheduler.
 export const now =
   initialTimeMs < 10000 ? Scheduler_now : () => Scheduler_now() - initialTimeMs;

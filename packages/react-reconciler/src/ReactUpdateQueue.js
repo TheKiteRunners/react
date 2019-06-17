@@ -194,14 +194,14 @@ function cloneUpdateQueue<State>(
 }
 
 export function createUpdate(
-  expirationTime: ExpirationTime,
+  expirationTime: ExpirationTime, // requestCurrentTime算得的时间
   suspenseConfig: null | SuspenseConfig,
 ): Update<*> {
   return {
     expirationTime,
     suspenseConfig,
 
-    tag: UpdateState,
+    tag: UpdateState, // 0
     payload: null,
     callback: null,
 
@@ -215,8 +215,9 @@ function appendUpdateToQueue<State>(
   update: Update<State>,
 ) {
   // Append the update to the end of the list.
+  // 将更新插入到列表的尾部
   if (queue.lastUpdate === null) {
-    // Queue is empty
+    // Queue is empty 队列为空
     queue.firstUpdate = queue.lastUpdate = update;
   } else {
     queue.lastUpdate.next = update;
@@ -224,7 +225,10 @@ function appendUpdateToQueue<State>(
   }
 }
 
-export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
+export function enqueueUpdate<State>(
+  fiber: Fiber, // FiberNode
+  update: Update<State> // createUpdate函数生成的update对象
+) {
   // Update queues are created lazily.
   const alternate = fiber.alternate;
   let queue1;
@@ -234,6 +238,7 @@ export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
     queue1 = fiber.updateQueue;
     queue2 = null;
     if (queue1 === null) {
+      // 返回一个对象
       queue1 = fiber.updateQueue = createUpdateQueue(fiber.memoizedState);
     }
   } else {
@@ -267,6 +272,7 @@ export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
     // There are two queues. We need to append the update to both queues,
     // while accounting for the persistent structure of the list — we don't
     // want the same update to be added multiple times.
+    // 有两个队列。 我们需要将更新附加到两个队列，同时考虑列表的持久结构 - 我们不希望多次添加相同的更新。
     if (queue1.lastUpdate === null || queue2.lastUpdate === null) {
       // One of the queues is not empty. We must add the update to both queues.
       appendUpdateToQueue(queue1, update);
@@ -274,6 +280,7 @@ export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
     } else {
       // Both queues are non-empty. The last update is the same in both lists,
       // because of structural sharing. So, only append to one of the lists.
+      // 两个队列都是非空的。 由于结构共享，两个列表中的最后一次更新是相同的。 所以，只附加到其中一个列表。
       appendUpdateToQueue(queue1, update);
       // But we still need to update the `lastUpdate` pointer of queue2.
       queue2.lastUpdate = update;

@@ -120,9 +120,9 @@ function getContextForSubtree(
 }
 
 function scheduleRootUpdate(
-  current: Fiber,
-  element: ReactNodeList,
-  expirationTime: ExpirationTime,
+  current: Fiber, // FiberNode
+  element: ReactNodeList, // 为使用React编写的组件
+  expirationTime: ExpirationTime, // requestCurrentTime算得的时间
   suspenseConfig: null | SuspenseConfig,
   callback: ?Function,
 ) {
@@ -160,7 +160,7 @@ function scheduleRootUpdate(
     update.callback = callback;
   }
 
-  if (revertPassiveEffectsChange) {
+  if (revertPassiveEffectsChange) { // 默认为false
     flushPassiveEffects();
   }
   enqueueUpdate(current, update);
@@ -170,10 +170,10 @@ function scheduleRootUpdate(
 }
 
 export function updateContainerAtExpirationTime(
-  element: ReactNodeList,
-  container: OpaqueRoot,
-  parentComponent: ?React$Component<any, any>,
-  expirationTime: ExpirationTime,
+  element: ReactNodeList, // 为使用React编写的组件
+  container: OpaqueRoot, // FiberRoot
+  parentComponent: ?React$Component<any, any>, // null
+  expirationTime: ExpirationTime, // requestCurrentTime算得的时间
   suspenseConfig: null | SuspenseConfig,
   callback: ?Function,
 ) {

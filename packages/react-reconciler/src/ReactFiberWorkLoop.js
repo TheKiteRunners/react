@@ -251,12 +251,12 @@ let interruptedBy: Fiber | null = null;
 // time). However, if two updates are scheduled within the same event, we
 // should treat their start times as simultaneous, even if the actual clock
 // time has advanced between the first and second call.
-//通过添加到当前时间（开始时间）来计算到期时间。 但是，如果在同一事件中安排了两次更新，我们应将它们的开始时间视为同步，即使第一次和第二次呼叫之间的实际时钟时间已提前。
+// 通过添加到当前时间（开始时间）来计算到期时间。 但是，如果在同一事件中安排了两次更新，我们应将它们的开始时间视为同步，即使第一次和第二次调用之间的实际时钟时间已提前。
 
 // In other words, because expiration times determine how updates are batched,
 // we want all updates of like priority that occur within the same event to
 // receive the same expiration time. Otherwise we get tearing.
-// 换句话说，由于到期时间决定了批量更新的方式，因此我们希望在同一事件中发生的所有类似优先级的更新都会收到相同的到期时间。 否则我们会撕裂。
+// 换句话说，由于到期时间决定了批量更新的方式，因此我们希望在同一事件中发生的所有类似优先级的更新都会收到相同的到期时间
 let currentEventTime: ExpirationTime = NoWork;
 
 export function requestCurrentTime() {
@@ -275,22 +275,33 @@ export function requestCurrentTime() {
 }
 
 export function computeExpirationForFiber(
-  currentTime: ExpirationTime,
-  fiber: Fiber,
-  suspenseConfig: null | SuspenseConfig,
+  currentTime: ExpirationTime, // requestCurrentTime算得的时间
+  fiber: Fiber, // FiberNode
+  suspenseConfig: null | SuspenseConfig, // 这个参数没有搞懂是干嘛的, 后续看完全部, 更新一下
 ): ExpirationTime {
-  const mode = fiber.mode;
+  const mode = fiber.mode; // 0
+  // BatchedMode是常量 值为0b0010;
+  // NoMode是常量, 值为ob0000;
   if ((mode & BatchedMode) === NoMode) {
+    // 第一次进入的时候会直接返回
+    // Sync是常量, 值为32位系统的V8中的最大整数, Math.pow(2, 30) - 1
     return Sync;
   }
 
+  // 非首次, 获取当前优先级
   const priorityLevel = getCurrentPriorityLevel();
+  // ConcurrentMode是常量, 值为0b0100
   if ((mode & ConcurrentMode) === NoMode) {
+    // Batched是常量, 值为Sync - 1
     return priorityLevel === ImmediatePriority ? Sync : Batched;
   }
 
+  // RenderContext是常量, 值为0b010000
+  // NoContext是常量, 值为0b000000
+  // executionContext是变量, 初始化值为NoContext
   if ((executionContext & RenderContext) !== NoContext) {
     // Use whatever time we're already rendering
+    // renderExpirationTime为变量, 初始值为0
     return renderExpirationTime;
   }
 
@@ -309,14 +320,17 @@ export function computeExpirationForFiber(
         break;
       case UserBlockingPriority:
         // TODO: Rename this to computeUserBlockingExpiration
+        // 计算交互情况的过期时间
         expirationTime = computeInteractiveExpiration(currentTime);
         break;
       case NormalPriority:
       case LowPriority: // TODO: Handle LowPriority
         // TODO: Rename this to... something better.
+        // 计算异步情况的过期时间
         expirationTime = computeAsyncExpiration(currentTime);
         break;
       case IdlePriority:
+        // 优先级最低, Never是常量, 值为1
         expirationTime = Never;
         break;
       default:
@@ -335,6 +349,7 @@ export function computeExpirationForFiber(
 }
 
 let lastUniqueAsyncExpiration = NoWork;
+// 计算异步状态的更新优先级
 export function computeUniqueAsyncExpiration(): ExpirationTime {
   const currentTime = requestCurrentTime();
   let result = computeAsyncExpiration(currentTime);
@@ -342,6 +357,7 @@ export function computeUniqueAsyncExpiration(): ExpirationTime {
     // Since we assume the current time monotonically increases, we only hit
     // this branch when computeUniqueAsyncExpiration is fired multiple times
     // within a 200ms window (or whatever the async bucket size is).
+    // 由于我们假设当前时间单调增加，因此当在200ms窗口内（或任何异步）多次触发computeUniqueAsyncExpiration时，我们只会触发此分支。
     result -= 1;
   }
   lastUniqueAsyncExpiration = result;
@@ -352,9 +368,13 @@ export function scheduleUpdateOnFiber(
   fiber: Fiber,
   expirationTime: ExpirationTime,
 ) {
+  // 防止用错使用setState导致的死循环
   checkForNestedUpdates();
+
+  // 同上, 不过具体到了函数(getChildContext,render内禁止使用setState)
   warnAboutInvalidUpdatesOnClassComponentsInDEV(fiber);
 
+  // 更新时间
   const root = markUpdateTimeFromFiberToRoot(fiber, expirationTime);
   if (root === null) {
     warnAboutUpdateOnUnmountedFiberInDEV(fiber);
@@ -425,10 +445,13 @@ export const scheduleWork = scheduleUpdateOnFiber;
 
 // This is split into a separate function so we can mark a fiber with pending
 // work without treating it as a typical update that originates from an event;
+// 这被拆分为一个单独的函数，因此我们可以将待处理的工作看为`fiber`，而不将其视为源自事件的更新;
+
 // e.g. retrying a Suspense boundary isn't an update, but it does schedule work
 // on a fiber.
 function markUpdateTimeFromFiberToRoot(fiber, expirationTime) {
   // Update the source fiber's expiration time
+  // 更新来的fiber的过期时间, 取大的
   if (fiber.expirationTime < expirationTime) {
     fiber.expirationTime = expirationTime;
   }
@@ -437,6 +460,7 @@ function markUpdateTimeFromFiberToRoot(fiber, expirationTime) {
     alternate.expirationTime = expirationTime;
   }
   // Walk the parent path to the root and update the child expiration time.
+  // 沿着parent路径到根, 并更新child过期时间
   let node = fiber.return;
   let root = null;
   if (node === null && fiber.tag === HostRoot) {
@@ -468,6 +492,7 @@ function markUpdateTimeFromFiberToRoot(fiber, expirationTime) {
 
   if (root !== null) {
     // Update the first and last pending expiration times in this root
+    // 更新根节点的首次和最后一次pending过期时间
     const firstPendingTime = root.firstPendingTime;
     if (expirationTime > firstPendingTime) {
       root.firstPendingTime = expirationTime;
@@ -489,6 +514,8 @@ function markUpdateTimeFromFiberToRoot(fiber, expirationTime) {
 // should cancel the previous one. It also relies on commitRoot scheduling a
 // callback to render the next level, because that means we don't need a
 // separate callback per expiration time.
+// 使用此函数以及runRootCallback确保每个根目录只调度一次回调。 它仍然可以直接调用renderRoot，但通过此函数进行调度有助于避免过多的回调。
+// 它的工作原理是在根节点上存储回调节点和到期时间。 当一个新的回调进入时，它会比较到期时间以确定它是否应该取消之前的回调时间。 它还依赖于commitRoot调度回调以呈现下一级别，因为这意味着我们不需要每个到期时间单独的回调。
 function scheduleCallbackForRoot(
   root: FiberRoot,
   priorityLevel: ReactPriorityLevel,
@@ -516,7 +543,7 @@ function scheduleCallbackForRoot(
       let options = null;
       if (expirationTime !== Never) {
         let timeout = expirationTimeToMs(expirationTime) - now();
-        options = {timeout};
+        options = {timeout};  
       }
 
       root.callbackNode = scheduleCallback(

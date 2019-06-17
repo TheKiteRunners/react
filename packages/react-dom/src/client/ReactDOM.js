@@ -452,12 +452,15 @@ ReactRoot.prototype.createBatch = function(): Batch {
 /**
  * nodeType 属性返回节点类型。
   如果节点是一个元素节点，nodeType 属性返回 1。
-
   如果节点是属性节点, nodeType 属性返回 2。
-
   如果节点是一个文本节点，nodeType 属性返回 3。
-
   如果节点是一个注释节点，nodeType 属性返回 8。
+  如果节点是一个整个文档（DOM 树的根节点），nodeType 属性返回 9。
+  如果节点是一个DocumentFragment，nodeType 属性返回 11。
+  ELEMENT_NODE = 1,
+  DOCUMENT_NODE = 9,
+  DOCUMENT_FRAGMENT_NODE = 11,
+  COMMENT_NODE = 8
  */
 function isValidContainer(node) {
   return !!(
