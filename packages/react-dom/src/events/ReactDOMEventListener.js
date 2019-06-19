@@ -11,48 +11,21 @@ import type {AnyNativeEvent} from 'events/PluginModuleType';
 import type {Fiber} from 'react-reconciler/src/ReactFiber';
 import type {DOMTopLevelEventType} from 'events/TopLevelEventTypes';
 
-import {
-  batchedEventUpdates,
-  discreteUpdates,
-  flushDiscreteUpdatesIfNeeded,
-} from 'events/ReactGenericBatching';
-import {runExtractedPluginEventsInBatch} from 'events/EventPluginHub';
-import {dispatchEventForResponderEventSystem} from '../events/DOMEventResponderSystem';
+import {batchedUpdates, interactiveUpdates} from 'events/ReactGenericBatching';
+import {runExtractedEventsInBatch} from 'events/EventPluginHub';
 import {isFiberMounted} from 'react-reconciler/reflection';
 import {HostRoot} from 'shared/ReactWorkTags';
-import {
-  type EventSystemFlags,
-  PLUGIN_EVENT_SYSTEM,
-  RESPONDER_EVENT_SYSTEM,
-  IS_PASSIVE,
-  IS_ACTIVE,
-  PASSIVE_NOT_SUPPORTED,
-} from 'events/EventSystemFlags';
 
-import {
-  addEventBubbleListener,
-  addEventCaptureListener,
-  addEventCaptureListenerWithPassiveFlag,
-} from './EventListener';
+import {addEventBubbleListener, addEventCaptureListener} from './EventListener';
 import getEventTarget from './getEventTarget';
 import {getClosestInstanceFromNode} from '../client/ReactDOMComponentTree';
 import SimpleEventPlugin from './SimpleEventPlugin';
 import {getRawEventName} from './DOMTopLevelEventTypes';
-import {passiveBrowserEventsSupported} from './checkPassiveEvents';
 
-import {enableEventAPI} from 'shared/ReactFeatureFlags';
-
-const {isDiscreteTopLevelEventType} = SimpleEventPlugin;
+const {isInteractiveTopLevelEventType} = SimpleEventPlugin;
 
 const CALLBACK_BOOKKEEPING_POOL_SIZE = 10;
 const callbackBookkeepingPool = [];
-
-type BookKeepingInstance = {
-  topLevelType: DOMTopLevelEventType | null,
-  nativeEvent: AnyNativeEvent | null,
-  targetInst: Fiber | null,
-  ancestors: Array<Fiber | null>,
-};
 
 /**
  * Find the deepest React component completely containing the root of the
@@ -75,10 +48,15 @@ function findRootContainerNode(inst) {
 
 // Used to store ancestor hierarchy in top level callback
 function getTopLevelCallbackBookKeeping(
-  topLevelType: DOMTopLevelEventType,
-  nativeEvent: AnyNativeEvent,
+  topLevelType,
+  nativeEvent,
+  targetInst,
+): {
+  topLevelType: ?DOMTopLevelEventType,
+  nativeEvent: ?AnyNativeEvent,
   targetInst: Fiber | null,
-): BookKeepingInstance {
+  ancestors: Array<Fiber>,
+} {
   if (callbackBookkeepingPool.length) {
     const instance = callbackBookkeepingPool.pop();
     instance.topLevelType = topLevelType;
@@ -94,9 +72,7 @@ function getTopLevelCallbackBookKeeping(
   };
 }
 
-function releaseTopLevelCallbackBookKeeping(
-  instance: BookKeepingInstance,
-): void {
+function releaseTopLevelCallbackBookKeeping(instance) {
   instance.topLevelType = null;
   instance.nativeEvent = null;
   instance.targetInst = null;
@@ -106,7 +82,7 @@ function releaseTopLevelCallbackBookKeeping(
   }
 }
 
-function handleTopLevel(bookKeeping: BookKeepingInstance) {
+function handleTopLevel(bookKeeping) {
   let targetInst = bookKeeping.targetInst;
 
   // Loop through the hierarchy, in case there's any nested components.
@@ -116,8 +92,7 @@ function handleTopLevel(bookKeeping: BookKeepingInstance) {
   let ancestor = targetInst;
   do {
     if (!ancestor) {
-      const ancestors = bookKeeping.ancestors;
-      ((ancestors: any): Array<Fiber | null>).push(ancestor);
+      bookKeeping.ancestors.push(ancestor);
       break;
     }
     const root = findRootContainerNode(ancestor);
@@ -130,15 +105,11 @@ function handleTopLevel(bookKeeping: BookKeepingInstance) {
 
   for (let i = 0; i < bookKeeping.ancestors.length; i++) {
     targetInst = bookKeeping.ancestors[i];
-    const eventTarget = getEventTarget(bookKeeping.nativeEvent);
-    const topLevelType = ((bookKeeping.topLevelType: any): DOMTopLevelEventType);
-    const nativeEvent = ((bookKeeping.nativeEvent: any): AnyNativeEvent);
-
-    runExtractedPluginEventsInBatch(
-      topLevelType,
+    runExtractedEventsInBatch(
+      bookKeeping.topLevelType,
       targetInst,
-      nativeEvent,
-      eventTarget,
+      bookKeeping.nativeEvent,
+      getEventTarget(bookKeeping.nativeEvent),
     );
   }
 }
@@ -154,114 +125,76 @@ export function isEnabled() {
   return _enabled;
 }
 
+/**
+ * Traps top-level events by using event bubbling.
+ *
+ * @param {number} topLevelType Number from `TopLevelEventTypes`.
+ * @param {object} element Element on which to attach listener.
+ * @return {?object} An object with a remove function which will forcefully
+ *                  remove the listener.
+ * @internal
+ */
 export function trapBubbledEvent(
   topLevelType: DOMTopLevelEventType,
-  element: Document | Element | Node,
-): void {
-  trapEventForPluginEventSystem(element, topLevelType, false);
+  element: Document | Element,
+) {
+  if (!element) {
+    return null;
+  }
+  const dispatch = isInteractiveTopLevelEventType(topLevelType)
+    ? dispatchInteractiveEvent
+    : dispatchEvent;
+
+  addEventBubbleListener(
+    element,
+    getRawEventName(topLevelType),
+    // Check if interactive and wrap in interactiveUpdates
+    dispatch.bind(null, topLevelType),
+  );
 }
 
+/**
+ * Traps a top-level event by using event capturing.
+ *
+ * @param {number} topLevelType Number from `TopLevelEventTypes`.
+ * @param {object} element Element on which to attach listener.
+ * @return {?object} An object with a remove function which will forcefully
+ *                  remove the listener.
+ * @internal
+ */
 export function trapCapturedEvent(
   topLevelType: DOMTopLevelEventType,
-  element: Document | Element | Node,
-): void {
-  trapEventForPluginEventSystem(element, topLevelType, true);
-}
-
-export function trapEventForResponderEventSystem(
-  element: Document | Element | Node,
-  topLevelType: DOMTopLevelEventType,
-  passive: boolean,
-): void {
-  if (enableEventAPI) {
-    const rawEventName = getRawEventName(topLevelType);
-    let eventFlags = RESPONDER_EVENT_SYSTEM;
-
-    // If passive option is not supported, then the event will be
-    // active and not passive, but we flag it as using not being
-    // supported too. This way the responder event plugins know,
-    // and can provide polyfills if needed.
-    if (passive) {
-      if (passiveBrowserEventsSupported) {
-        eventFlags |= IS_PASSIVE;
-      } else {
-        eventFlags |= IS_ACTIVE;
-        eventFlags |= PASSIVE_NOT_SUPPORTED;
-        passive = false;
-      }
-    } else {
-      eventFlags |= IS_ACTIVE;
-    }
-    // Check if interactive and wrap in discreteUpdates
-    const listener = dispatchEvent.bind(null, topLevelType, eventFlags);
-    if (passiveBrowserEventsSupported) {
-      addEventCaptureListenerWithPassiveFlag(
-        element,
-        rawEventName,
-        listener,
-        passive,
-      );
-    } else {
-      addEventCaptureListener(element, rawEventName, listener);
-    }
+  element: Document | Element,
+) {
+  if (!element) {
+    return null;
   }
-}
-
-function trapEventForPluginEventSystem(
-  element: Document | Element | Node,
-  topLevelType: DOMTopLevelEventType,
-  capture: boolean,
-): void {
-  const dispatch = isDiscreteTopLevelEventType(topLevelType)
-    ? dispatchDiscreteEvent
+  const dispatch = isInteractiveTopLevelEventType(topLevelType)
+    ? dispatchInteractiveEvent
     : dispatchEvent;
-  const rawEventName = getRawEventName(topLevelType);
-  // Check if discrete and wrap in discreteUpdates
-  const listener = dispatch.bind(null, topLevelType, PLUGIN_EVENT_SYSTEM);
-  if (capture) {
-    addEventCaptureListener(element, rawEventName, listener);
-  } else {
-    addEventBubbleListener(element, rawEventName, listener);
-  }
-}
 
-function dispatchDiscreteEvent(topLevelType, eventSystemFlags, nativeEvent) {
-  flushDiscreteUpdatesIfNeeded(nativeEvent.timeStamp);
-  discreteUpdates(dispatchEvent, topLevelType, eventSystemFlags, nativeEvent);
-}
-
-function dispatchEventForPluginEventSystem(
-  topLevelType: DOMTopLevelEventType,
-  eventSystemFlags: EventSystemFlags,
-  nativeEvent: AnyNativeEvent,
-  targetInst: null | Fiber,
-): void {
-  const bookKeeping = getTopLevelCallbackBookKeeping(
-    topLevelType,
-    nativeEvent,
-    targetInst,
+  addEventCaptureListener(
+    element,
+    getRawEventName(topLevelType),
+    // Check if interactive and wrap in interactiveUpdates
+    dispatch.bind(null, topLevelType),
   );
+}
 
-  try {
-    // Event queue being processed in the same cycle allows
-    // `preventDefault`.
-    batchedEventUpdates(handleTopLevel, bookKeeping);
-  } finally {
-    releaseTopLevelCallbackBookKeeping(bookKeeping);
-  }
+function dispatchInteractiveEvent(topLevelType, nativeEvent) {
+  interactiveUpdates(dispatchEvent, topLevelType, nativeEvent);
 }
 
 export function dispatchEvent(
   topLevelType: DOMTopLevelEventType,
-  eventSystemFlags: EventSystemFlags,
   nativeEvent: AnyNativeEvent,
-): void {
+) {
   if (!_enabled) {
     return;
   }
+
   const nativeEventTarget = getEventTarget(nativeEvent);
   let targetInst = getClosestInstanceFromNode(nativeEventTarget);
-
   if (
     targetInst !== null &&
     typeof targetInst.tag === 'number' &&
@@ -274,30 +207,17 @@ export function dispatchEvent(
     targetInst = null;
   }
 
-  if (enableEventAPI) {
-    if (eventSystemFlags === PLUGIN_EVENT_SYSTEM) {
-      dispatchEventForPluginEventSystem(
-        topLevelType,
-        eventSystemFlags,
-        nativeEvent,
-        targetInst,
-      );
-    } else {
-      // Responder event system (experimental event API)
-      dispatchEventForResponderEventSystem(
-        topLevelType,
-        targetInst,
-        nativeEvent,
-        nativeEventTarget,
-        eventSystemFlags,
-      );
-    }
-  } else {
-    dispatchEventForPluginEventSystem(
-      topLevelType,
-      eventSystemFlags,
-      nativeEvent,
-      targetInst,
-    );
+  const bookKeeping = getTopLevelCallbackBookKeeping(
+    topLevelType,
+    nativeEvent,
+    targetInst,
+  );
+
+  try {
+    // Event queue being processed in the same cycle allows
+    // `preventDefault`.
+    batchedUpdates(handleTopLevel, bookKeeping);
+  } finally {
+    releaseTopLevelCallbackBookKeeping(bookKeeping);
   }
 }

@@ -11,7 +11,6 @@ import type {Fiber} from 'react-reconciler/src/ReactFiber';
 import type {FiberRoot} from 'react-reconciler/src/ReactFiberRoot';
 import type {Instance, TextInstance} from './ReactTestHostConfig';
 
-import * as Scheduler from 'scheduler/unstable_mock';
 import {
   getPublicRootInstance,
   createContainer,
@@ -40,10 +39,16 @@ import {
 } from 'shared/ReactWorkTags';
 import invariant from 'shared/invariant';
 import ReactVersion from 'shared/ReactVersion';
-import act from './ReactTestRendererAct';
+import warningWithoutStack from 'shared/warningWithoutStack';
 
 import {getPublicInstance} from './ReactTestHostConfig';
-import {ConcurrentRoot, LegacyRoot} from 'shared/ReactRootTags';
+import {
+  flushAll,
+  flushNumberOfYields,
+  clearYields,
+  setNowImplementation,
+  yieldValue,
+} from './ReactTestRendererScheduling';
 
 type TestRendererOptions = {
   createNodeMock: (element: React$Element<any>) => any,
@@ -65,6 +70,11 @@ type FindOptions = $Shape<{
 }>;
 
 export type Predicate = (node: ReactTestInstance) => ?boolean;
+
+// for .act's return value
+type Thenable = {
+  then(resolve: () => mixed, reject?: () => mixed): mixed,
+};
 
 const defaultTestOptions = {
   createNodeMock: function() {
@@ -420,8 +430,6 @@ function propsMatch(props: Object, filter: Object): boolean {
 }
 
 const ReactTestRendererFiber = {
-  _Scheduler: Scheduler,
-
   create(element: React$Element<any>, options: TestRendererOptions) {
     let createNodeMock = defaultTestOptions.createNodeMock;
     let isConcurrent = false;
@@ -440,15 +448,13 @@ const ReactTestRendererFiber = {
     };
     let root: FiberRoot | null = createContainer(
       container,
-      isConcurrent ? ConcurrentRoot : LegacyRoot,
+      isConcurrent,
       false,
     );
     invariant(root != null, 'something went wrong');
     updateContainer(element, root, null, null);
 
     const entry = {
-      _Scheduler: Scheduler,
-
       root: undefined, // makes flow happy
       // we define a 'getter' for 'root' below using 'Object.defineProperty'
       toJSON(): Array<ReactTestRendererNode> | ReactTestRendererNode | null {
@@ -512,9 +518,13 @@ const ReactTestRendererFiber = {
         return getPublicRootInstance(root);
       },
 
+      unstable_flushAll: flushAll,
       unstable_flushSync<T>(fn: () => T): T {
+        clearYields();
         return flushSync(fn);
       },
+      unstable_flushNumberOfYields: flushNumberOfYields,
+      unstable_clearYields: clearYields,
     };
 
     Object.defineProperty(
@@ -545,11 +555,68 @@ const ReactTestRendererFiber = {
     return entry;
   },
 
-  /* eslint-disable-next-line camelcase */
-  unstable_batchedUpdates: batchedUpdates,
+  unstable_yield: yieldValue,
+  unstable_clearYields: clearYields,
 
-  act,
+  /* eslint-disable camelcase */
+  unstable_batchedUpdates: batchedUpdates,
+  /* eslint-enable camelcase */
+
+  unstable_setNowImplementation: setNowImplementation,
+
+  act(callback: () => void): Thenable {
+    // note: keep these warning messages in sync with
+    // createNoop.js and ReactTestUtils.js
+    let result = batchedUpdates(callback);
+    if (__DEV__) {
+      if (result !== undefined) {
+        let addendum;
+        if (result !== null && typeof result.then === 'function') {
+          addendum =
+            "\n\nIt looks like you wrote TestRenderer.act(async () => ...) or returned a Promise from it's callback. " +
+            'Putting asynchronous logic inside TestRenderer.act(...) is not supported.\n';
+        } else {
+          addendum = ' You returned: ' + result;
+        }
+        warningWithoutStack(
+          false,
+          'The callback passed to TestRenderer.act(...) function must not return anything.%s',
+          addendum,
+        );
+      }
+    }
+    flushPassiveEffects();
+    // we want the user to not expect a return,
+    // but we want to warn if they use it like they can await on it.
+    return {
+      then() {
+        if (__DEV__) {
+          warningWithoutStack(
+            false,
+            'Do not await the result of calling TestRenderer.act(...), it is not a Promise.',
+          );
+        }
+      },
+    };
+  },
 };
+
+// root used to flush effects during .act() calls
+const actRoot = createContainer(
+  {
+    children: [],
+    createNodeMock: defaultTestOptions.createNodeMock,
+    tag: 'CONTAINER',
+  },
+  true,
+  false,
+);
+
+function flushPassiveEffects() {
+  // Trick to flush passive effects without exposing an internal API:
+  // Create a throwaway root and schedule a dummy update on it.
+  updateContainer(null, actRoot, null, null);
+}
 
 const fiberToWrapper = new WeakMap();
 function wrapFiber(fiber: Fiber): ReactTestInstance {

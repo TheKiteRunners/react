@@ -63,7 +63,7 @@ if (__DEV__) {
  * @param {function} listener Application-level callback
  * @param {*} inst Internal component instance
  */
-export function executeDispatch(event, listener, inst) {
+function executeDispatch(event, listener, inst) {
   const type = event.type || 'unknown-event';
   event.currentTarget = getNodeFromInstance(inst);
   invokeGuardedCallbackAndCatchFirstError(type, listener, undefined, event);

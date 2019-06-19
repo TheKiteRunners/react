@@ -10,7 +10,7 @@
 import type {CapturedError} from '../ReactCapturedValue';
 
 // Module provided by RN:
-import {ExceptionsManager} from 'react-native/Libraries/ReactPrivate/ReactNativePrivateInterface';
+import ExceptionsManager from 'ExceptionsManager';
 
 /**
  * Intercept lifecycle errors and ensure they are shown with the correct stack

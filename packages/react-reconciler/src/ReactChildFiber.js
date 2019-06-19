@@ -43,7 +43,6 @@ import {
   getCurrentFiberStackInDev,
   getStackByFiberInDevAndProd,
 } from './ReactCurrentFiber';
-import {isCompatibleFamilyForHotReloading} from './ReactFiberHotReloading';
 import {StrictMode} from './ReactTypeOfMode';
 
 let didWarnAboutMaps;
@@ -379,12 +378,7 @@ function ChildReconciler(shouldTrackSideEffects) {
     element: ReactElement,
     expirationTime: ExpirationTime,
   ): Fiber {
-    if (
-      current !== null &&
-      (current.elementType === element.type ||
-        // Keep this check inline so it only runs on the false path:
-        (__DEV__ ? isCompatibleFamilyForHotReloading(current, element) : false))
-    ) {
+    if (current !== null && current.elementType === element.type) {
       // Move based on index
       const existing = useFiber(current, element.props, expirationTime);
       existing.ref = coerceRef(returnFiber, current, element);
@@ -837,7 +831,7 @@ function ChildReconciler(shouldTrackSideEffects) {
           newChildren[newIdx],
           expirationTime,
         );
-        if (newFiber === null) {
+        if (!newFiber) {
           continue;
         }
         lastPlacedIndex = placeChild(newFiber, lastPlacedIndex, newIdx);
@@ -864,7 +858,7 @@ function ChildReconciler(shouldTrackSideEffects) {
         newChildren[newIdx],
         expirationTime,
       );
-      if (newFiber !== null) {
+      if (newFiber) {
         if (shouldTrackSideEffects) {
           if (newFiber.alternate !== null) {
             // The new fiber is a work in progress, but if there exists a
@@ -988,7 +982,7 @@ function ChildReconciler(shouldTrackSideEffects) {
         // unfortunate because it triggers the slow path all the time. We need
         // a better way to communicate whether this was a miss or null,
         // boolean, undefined, etc.
-        if (oldFiber === null) {
+        if (!oldFiber) {
           oldFiber = nextOldFiber;
         }
         break;
@@ -1127,11 +1121,7 @@ function ChildReconciler(shouldTrackSideEffects) {
         if (
           child.tag === Fragment
             ? element.type === REACT_FRAGMENT_TYPE
-            : child.elementType === element.type ||
-              // Keep this check inline so it only runs on the false path:
-              (__DEV__
-                ? isCompatibleFamilyForHotReloading(child, element)
-                : false)
+            : child.elementType === element.type
         ) {
           deleteRemainingChildren(returnFiber, child.sibling);
           const existing = useFiber(

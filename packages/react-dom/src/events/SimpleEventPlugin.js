@@ -56,7 +56,7 @@ import getEventCharCode from './getEventCharCode';
  * ]);
  */
 type EventTuple = [DOMTopLevelEventType, string];
-const discreteEventTypeNames: Array<EventTuple> = [
+const interactiveEventTypeNames: Array<EventTuple> = [
   [DOMTopLevelEventTypes.TOP_BLUR, 'blur'],
   [DOMTopLevelEventTypes.TOP_CANCEL, 'cancel'],
   [DOMTopLevelEventTypes.TOP_CLICK, 'click'],
@@ -92,7 +92,7 @@ const discreteEventTypeNames: Array<EventTuple> = [
   [DOMTopLevelEventTypes.TOP_TOUCH_START, 'touchStart'],
   [DOMTopLevelEventTypes.TOP_VOLUME_CHANGE, 'volumeChange'],
 ];
-const continuousEventTypeNames: Array<EventTuple> = [
+const nonInteractiveEventTypeNames: Array<EventTuple> = [
   [DOMTopLevelEventTypes.TOP_ABORT, 'abort'],
   [DOMTopLevelEventTypes.TOP_ANIMATION_END, 'animationEnd'],
   [DOMTopLevelEventTypes.TOP_ANIMATION_ITERATION, 'animationIteration'],
@@ -142,7 +142,7 @@ const topLevelEventsToDispatchConfig: {
 
 function addEventTypeNameToConfig(
   [topEvent, event]: EventTuple,
-  isDiscrete: boolean,
+  isInteractive: boolean,
 ) {
   const capitalizedEvent = event[0].toUpperCase() + event.slice(1);
   const onEvent = 'on' + capitalizedEvent;
@@ -153,16 +153,16 @@ function addEventTypeNameToConfig(
       captured: onEvent + 'Capture',
     },
     dependencies: [topEvent],
-    isDiscrete,
+    isInteractive,
   };
   eventTypes[event] = type;
   topLevelEventsToDispatchConfig[topEvent] = type;
 }
 
-discreteEventTypeNames.forEach(eventTuple => {
+interactiveEventTypeNames.forEach(eventTuple => {
   addEventTypeNameToConfig(eventTuple, true);
 });
-continuousEventTypeNames.forEach(eventTuple => {
+nonInteractiveEventTypeNames.forEach(eventTuple => {
   addEventTypeNameToConfig(eventTuple, false);
 });
 
@@ -202,13 +202,13 @@ const knownHTMLTopLevelTypes: Array<DOMTopLevelEventType> = [
 ];
 
 const SimpleEventPlugin: PluginModule<MouseEvent> & {
-  isDiscreteTopLevelEventType: (topLevelType: TopLevelType) => boolean,
+  isInteractiveTopLevelEventType: (topLevelType: TopLevelType) => boolean,
 } = {
   eventTypes: eventTypes,
 
-  isDiscreteTopLevelEventType(topLevelType: TopLevelType): boolean {
+  isInteractiveTopLevelEventType(topLevelType: TopLevelType): boolean {
     const config = topLevelEventsToDispatchConfig[topLevelType];
-    return config !== undefined && config.isDiscrete === true;
+    return config !== undefined && config.isInteractive === true;
   },
 
   extractEvents: function(

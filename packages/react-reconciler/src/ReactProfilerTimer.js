@@ -11,11 +11,7 @@ import type {Fiber} from './ReactFiber';
 
 import {enableProfilerTimer} from 'shared/ReactFeatureFlags';
 
-// Intentionally not named imports because Rollup would use dynamic dispatch for
-// CommonJS interop named imports.
-import * as Scheduler from 'scheduler';
-
-const {unstable_now: now} = Scheduler;
+import {now} from './ReactFiberHostConfig';
 
 export type ProfilerTimer = {
   getCommitTime(): number,

@@ -8,7 +8,7 @@
  */
 
 // Module provided by RN:
-import {UIManager} from 'react-native/Libraries/ReactPrivate/ReactNativePrivateInterface';
+import UIManager from 'UIManager';
 
 const ReactNativeGlobalResponderHandler = {
   onChange: function(from: any, to: any, blockNativeResponder: boolean) {

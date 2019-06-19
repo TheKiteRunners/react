@@ -8,7 +8,6 @@
  */
 
 import {registrationNameDependencies} from 'events/EventPluginRegistry';
-import type {DOMTopLevelEventType} from 'events/TopLevelEventTypes';
 import {
   TOP_BLUR,
   TOP_CANCEL,
@@ -85,23 +84,22 @@ import isEventSupported from './isEventSupported';
  *    React Core     .  General Purpose Event Plugin System
  */
 
-const PossiblyWeakMap = typeof WeakMap === 'function' ? WeakMap : Map;
-const elementListeningSets:
-  | WeakMap
-  | Map<
-      Document | Element | Node,
-      Set<DOMTopLevelEventType | string>,
-    > = new PossiblyWeakMap();
+const alreadyListeningTo = {};
+let reactTopListenersCounter = 0;
 
-export function getListeningSetForElement(
-  element: Document | Element | Node,
-): Set<DOMTopLevelEventType | string> {
-  let listeningSet = elementListeningSets.get(element);
-  if (listeningSet === undefined) {
-    listeningSet = new Set();
-    elementListeningSets.set(element, listeningSet);
+/**
+ * To ensure no conflicts with other potential React instances on the page
+ */
+const topListenersIDKey = '_reactListenersID' + ('' + Math.random()).slice(2);
+
+function getListeningForDocument(mountAt: any) {
+  // In IE8, `mountAt` is a host object and doesn't have `hasOwnProperty`
+  // directly.
+  if (!Object.prototype.hasOwnProperty.call(mountAt, topListenersIDKey)) {
+    mountAt[topListenersIDKey] = reactTopListenersCounter++;
+    alreadyListeningTo[mountAt[topListenersIDKey]] = {};
   }
-  return listeningSet;
+  return alreadyListeningTo[mountAt[topListenersIDKey]];
 }
 
 /**
@@ -127,14 +125,14 @@ export function getListeningSetForElement(
  */
 export function listenTo(
   registrationName: string,
-  mountAt: Document | Element | Node,
-): void {
-  const listeningSet = getListeningSetForElement(mountAt);
+  mountAt: Document | Element,
+) {
+  const isListening = getListeningForDocument(mountAt);
   const dependencies = registrationNameDependencies[registrationName];
 
   for (let i = 0; i < dependencies.length; i++) {
     const dependency = dependencies[i];
-    if (!listeningSet.has(dependency)) {
+    if (!(isListening.hasOwnProperty(dependency) && isListening[dependency])) {
       switch (dependency) {
         case TOP_SCROLL:
           trapCapturedEvent(TOP_SCROLL, mountAt);
@@ -145,8 +143,8 @@ export function listenTo(
           trapCapturedEvent(TOP_BLUR, mountAt);
           // We set the flag for a single dependency later in this function,
           // but this ensures we mark both as attached rather than just one.
-          listeningSet.add(TOP_BLUR);
-          listeningSet.add(TOP_FOCUS);
+          isListening[TOP_BLUR] = true;
+          isListening[TOP_FOCUS] = true;
           break;
         case TOP_CANCEL:
         case TOP_CLOSE:
@@ -169,7 +167,7 @@ export function listenTo(
           }
           break;
       }
-      listeningSet.add(dependency);
+      isListening[dependency] = true;
     }
   }
 }
@@ -177,13 +175,12 @@ export function listenTo(
 export function isListeningToAllDependencies(
   registrationName: string,
   mountAt: Document | Element,
-): boolean {
-  const listeningSet = getListeningSetForElement(mountAt);
+) {
+  const isListening = getListeningForDocument(mountAt);
   const dependencies = registrationNameDependencies[registrationName];
-
   for (let i = 0; i < dependencies.length; i++) {
     const dependency = dependencies[i];
-    if (!listeningSet.has(dependency)) {
+    if (!(isListening.hasOwnProperty(dependency) && isListening[dependency])) {
       return false;
     }
   }

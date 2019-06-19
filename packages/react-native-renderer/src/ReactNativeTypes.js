@@ -89,7 +89,7 @@ class ReactNativeComponent<Props> extends React.Component<Props> {
   measure(callback: MeasureOnSuccessCallback): void {}
   measureInWindow(callback: MeasureInWindowOnSuccessCallback): void {}
   measureLayout(
-    relativeToNativeNode: number | Object,
+    relativeToNativeNode: number,
     onSuccess: MeasureLayoutOnSuccessCallback,
     onFail?: () => void,
   ): void {}
@@ -106,7 +106,7 @@ export type NativeMethodsMixinType = {
   measure(callback: MeasureOnSuccessCallback): void,
   measureInWindow(callback: MeasureInWindowOnSuccessCallback): void,
   measureLayout(
-    relativeToNativeNode: number | Object,
+    relativeToNativeNode: number,
     onSuccess: MeasureLayoutOnSuccessCallback,
     onFail: () => void,
   ): void,
@@ -131,7 +131,6 @@ type SecretInternalsFabricType = {
 export type ReactNativeType = {
   NativeComponent: typeof ReactNativeComponent,
   findNodeHandle(componentOrHandle: any): ?number,
-  setNativeProps(handle: any, nativeProps: Object): void,
   render(
     element: React$Element<any>,
     containerTag: any,
@@ -147,7 +146,6 @@ export type ReactNativeType = {
 export type ReactFabricType = {
   NativeComponent: typeof ReactNativeComponent,
   findNodeHandle(componentOrHandle: any): ?number,
-  setNativeProps(handle: any, nativeProps: Object): void,
   render(
     element: React$Element<any>,
     containerTag: any,

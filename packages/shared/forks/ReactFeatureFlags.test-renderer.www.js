@@ -12,25 +12,16 @@ import invariant from 'shared/invariant';
 import typeof * as FeatureFlagsType from 'shared/ReactFeatureFlags';
 import typeof * as PersistentFeatureFlagsType from './ReactFeatureFlags.persistent';
 
-// Re-export dynamic flags from the www version.
-export const {revertPassiveEffectsChange} = require('ReactFeatureFlags');
-
 export const debugRenderPhaseSideEffects = false;
 export const debugRenderPhaseSideEffectsForStrictMode = false;
 export const enableUserTimingAPI = __DEV__;
-export const warnAboutDeprecatedLifecycles = true;
+export const warnAboutDeprecatedLifecycles = false;
 export const replayFailedUnitOfWorkWithInvokeGuardedCallback = false;
 export const enableProfilerTimer = false;
 export const enableSchedulerTracing = false;
 export const enableSuspenseServerRenderer = false;
 export const enableStableConcurrentModeAPIs = false;
 export const enableSchedulerDebugging = false;
-export const warnAboutDeprecatedSetNativeProps = false;
-export const disableJavaScriptURLs = false;
-export const disableYielding = false;
-export const enableEventAPI = true;
-export const enableJSXTransformAPI = true;
-export const warnAboutMissingMockScheduler = true;
 
 // Only used in www builds.
 export function addUserTimingListener() {

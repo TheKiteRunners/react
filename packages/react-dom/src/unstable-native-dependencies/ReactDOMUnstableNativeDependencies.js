@@ -11,7 +11,7 @@ import ResponderEventPlugin from 'events/ResponderEventPlugin';
 import ResponderTouchHistoryStore from 'events/ResponderTouchHistoryStore';
 
 // Inject react-dom's ComponentTree into this module.
-// Keep in sync with ReactDOM.js, ReactTestUtils.js, and ReactTestUtilsAct.js:
+// Keep in sync with ReactDOM.js and ReactTestUtils.js:
 const [
   getInstanceFromNode,
   getNodeFromInstance,

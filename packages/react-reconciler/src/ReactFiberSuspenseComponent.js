@@ -8,34 +8,19 @@
  */
 
 import type {Fiber} from './ReactFiber';
+import type {ExpirationTime} from './ReactFiberExpirationTime';
 
-// TODO: This is now an empty object. Should we switch this to a boolean?
-export type SuspenseState = {||};
+export type SuspenseState = {|
+  timedOutAt: ExpirationTime,
+|};
 
-export function shouldCaptureSuspense(
-  workInProgress: Fiber,
-  hasInvisibleParent: boolean,
-): boolean {
+export function shouldCaptureSuspense(workInProgress: Fiber): boolean {
+  // In order to capture, the Suspense component must have a fallback prop.
+  if (workInProgress.memoizedProps.fallback === undefined) {
+    return false;
+  }
   // If it was the primary children that just suspended, capture and render the
   // fallback. Otherwise, don't capture and bubble to the next boundary.
   const nextState: SuspenseState | null = workInProgress.memoizedState;
-  if (nextState !== null) {
-    return false;
-  }
-  const props = workInProgress.memoizedProps;
-  // In order to capture, the Suspense component must have a fallback prop.
-  if (props.fallback === undefined) {
-    return false;
-  }
-  // Regular boundaries always capture.
-  if (props.unstable_avoidThisFallback !== true) {
-    return true;
-  }
-  // If it's a boundary we should avoid, then we prefer to bubble up to the
-  // parent boundary if it is currently invisible.
-  if (hasInvisibleParent) {
-    return false;
-  }
-  // If the parent is not able to handle it, we must handle it.
-  return true;
+  return nextState === null;
 }

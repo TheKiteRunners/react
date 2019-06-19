@@ -5,7 +5,6 @@ describe('ErrorBoundaryReconciliation', () => {
   let React;
   let ReactFeatureFlags;
   let ReactTestRenderer;
-  let Scheduler;
   let span;
 
   beforeEach(() => {
@@ -15,7 +14,6 @@ describe('ErrorBoundaryReconciliation', () => {
     ReactFeatureFlags.replayFailedUnitOfWorkWithInvokeGuardedCallback = false;
     ReactTestRenderer = require('react-test-renderer');
     React = require('react');
-    Scheduler = require('scheduler');
 
     DidCatchErrorBoundary = class extends React.Component {
       state = {error: null};
@@ -58,7 +56,9 @@ describe('ErrorBoundaryReconciliation', () => {
         </ErrorBoundary>,
         {unstable_isConcurrent: isConcurrent},
       );
-      Scheduler.flushAll();
+      if (isConcurrent) {
+        renderer.unstable_flushAll();
+      }
       expect(renderer).toMatchRenderedOutput(<span prop="BrokenRender" />);
 
       expect(() => {
@@ -67,7 +67,9 @@ describe('ErrorBoundaryReconciliation', () => {
             <BrokenRender fail={true} />
           </ErrorBoundary>,
         );
-        Scheduler.flushAll();
+        if (isConcurrent) {
+          renderer.unstable_flushAll();
+        }
       }).toWarnDev(isConcurrent ? ['invalid', 'invalid'] : ['invalid']);
       const Fallback = fallbackTagName;
       expect(renderer).toMatchRenderedOutput(<Fallback prop="ErrorBoundary" />);

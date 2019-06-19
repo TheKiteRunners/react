@@ -8,9 +8,7 @@
 'use strict';
 
 import RuleOfHooks from './RulesOfHooks';
-import ExhaustiveDeps from './ExhaustiveDeps';
 
 export const rules = {
   'rules-of-hooks': RuleOfHooks,
-  'exhaustive-deps': ExhaustiveDeps,
 };

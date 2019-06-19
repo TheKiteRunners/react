@@ -59,7 +59,7 @@ let lastContextWithAllBitsObserved: ReactContext<any> | null = null;
 
 let isDisallowedContextReadInDEV: boolean = false;
 
-export function resetContextDependencies(): void {
+export function resetContextDependences(): void {
   // This is called right before React yields execution, to ensure `readContext`
   // cannot be called outside the render phase.
   currentlyRenderingFiber = null;
@@ -216,7 +216,7 @@ export function propagateContextChange(
 
           if (fiber.tag === ClassComponent) {
             // Schedule a force update on the work-in-progress.
-            const update = createUpdate(renderExpirationTime, null);
+            const update = createUpdate(renderExpirationTime);
             update.tag = ForceUpdate;
             // TODO: Because we don't have a work-in-progress, this will add the
             // update to the current fiber, too, which means it will persist even if

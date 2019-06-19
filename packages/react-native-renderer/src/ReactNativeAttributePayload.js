@@ -8,10 +8,8 @@
  */
 
 // Modules provided by RN:
-import {
-  deepDiffer,
-  flattenStyle,
-} from 'react-native/Libraries/ReactPrivate/ReactNativePrivateInterface';
+import deepDiffer from 'deepDiffer';
+import flattenStyle from 'flattenStyle';
 
 import type {AttributeConfiguration} from './ReactNativeTypes';
 

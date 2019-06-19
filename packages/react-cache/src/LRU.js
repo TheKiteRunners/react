@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) 2014-present, Facebook, Inc.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -7,14 +7,7 @@
  * @flow
  */
 
-import * as Scheduler from 'scheduler';
-
-// Intentionally not named imports because Rollup would
-// use dynamic dispatch for CommonJS interop named imports.
-const {
-  unstable_scheduleCallback: scheduleCallback,
-  unstable_IdlePriority: IdlePriority,
-} = Scheduler;
+import {unstable_scheduleCallback as scheduleCallback} from 'scheduler';
 
 type Entry<T> = {|
   value: T,
@@ -37,7 +30,7 @@ export function createLRU<T>(limit: number) {
       // The cache size exceeds the limit. Schedule a callback to delete the
       // least recently used entries.
       cleanUpIsScheduled = true;
-      scheduleCallback(IdlePriority, cleanUp);
+      scheduleCallback(cleanUp);
     }
   }
 

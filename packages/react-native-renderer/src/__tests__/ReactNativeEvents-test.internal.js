@@ -64,15 +64,13 @@ beforeEach(() => {
   jest.resetModules();
 
   PropTypes = require('prop-types');
-  RCTEventEmitter = require('react-native/Libraries/ReactPrivate/ReactNativePrivateInterface')
-    .RCTEventEmitter;
+  RCTEventEmitter = require('RCTEventEmitter');
   React = require('react');
   ReactNative = require('react-native-renderer');
   ResponderEventPlugin = require('events/ResponderEventPlugin').default;
-  UIManager = require('react-native/Libraries/ReactPrivate/ReactNativePrivateInterface')
-    .UIManager;
-  createReactNativeComponentClass = require('react-native/Libraries/ReactPrivate/ReactNativePrivateInterface')
-    .ReactNativeViewConfigRegistry.register;
+  UIManager = require('UIManager');
+  createReactNativeComponentClass = require('ReactNativeViewConfigRegistry')
+    .register;
 });
 
 it('fails if unknown/unsupported event types are dispatched', () => {

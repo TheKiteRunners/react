@@ -15,10 +15,9 @@ import './ReactFabricInjection';
 import {
   findHostInstance,
   findHostInstanceWithWarning,
-  batchedEventUpdates,
   batchedUpdates as batchedUpdatesImpl,
-  discreteUpdates,
-  flushDiscreteUpdates,
+  interactiveUpdates,
+  flushInteractiveUpdates,
   createContainer,
   updateContainer,
   injectIntoDevTools,
@@ -34,7 +33,6 @@ import ReactNativeComponent from './ReactNativeComponent';
 import {getClosestInstanceFromNode} from './ReactFabricComponentTree';
 import {getInspectorDataForViewTag} from './ReactNativeFiberInspector';
 
-import {LegacyRoot} from 'shared/ReactRootTags';
 import ReactSharedInternals from 'shared/ReactSharedInternals';
 import getComponentName from 'shared/getComponentName';
 import warningWithoutStack from 'shared/warningWithoutStack';
@@ -95,9 +93,8 @@ function findNodeHandle(componentOrHandle: any): ?number {
 
 setBatchingImplementation(
   batchedUpdatesImpl,
-  discreteUpdates,
-  flushDiscreteUpdates,
-  batchedEventUpdates,
+  interactiveUpdates,
+  flushInteractiveUpdates,
 );
 
 const roots = new Map();
@@ -107,22 +104,13 @@ const ReactFabric: ReactFabricType = {
 
   findNodeHandle,
 
-  setNativeProps(handle: any, nativeProps: Object) {
-    warningWithoutStack(
-      false,
-      'Warning: setNativeProps is not currently supported in Fabric',
-    );
-
-    return;
-  },
-
   render(element: React$Element<any>, containerTag: any, callback: ?Function) {
     let root = roots.get(containerTag);
 
     if (!root) {
       // TODO (bvaughn): If we decide to keep the wrapper component,
       // We could create a wrapper for containerTag as well to reduce special casing.
-      root = createContainer(containerTag, LegacyRoot, false);
+      root = createContainer(containerTag, false, false);
       roots.set(containerTag, root);
     }
     updateContainer(element, root, null, callback);

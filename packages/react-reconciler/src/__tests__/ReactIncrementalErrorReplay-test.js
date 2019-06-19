@@ -12,19 +12,17 @@
 
 let React;
 let ReactNoop;
-let Scheduler;
 
 describe('ReactIncrementalErrorReplay', () => {
   beforeEach(() => {
     jest.resetModules();
     React = require('react');
     ReactNoop = require('react-noop-renderer');
-    Scheduler = require('scheduler');
   });
 
   it('should fail gracefully on error in the host environment', () => {
     ReactNoop.render(<errorInBeginPhase />);
-    expect(Scheduler).toFlushAndThrow('Error in host config.');
+    expect(() => ReactNoop.flush()).toThrow('Error in host config.');
   });
 
   it("should ignore error if it doesn't throw on retry", () => {
@@ -45,6 +43,6 @@ describe('ReactIncrementalErrorReplay', () => {
       }
     }
     ReactNoop.render(<App />);
-    expect(Scheduler).toFlushWithoutYielding();
+    expect(() => ReactNoop.flush()).not.toThrow();
   });
 });

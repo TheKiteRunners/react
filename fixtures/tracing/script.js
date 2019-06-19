@@ -36,8 +36,7 @@ function checkSchedulerAPI() {
       throw 'API is not defined';
     }
 
-    const abs = Math.abs(Scheduler.unstable_now() - performance.now());
-    if (typeof abs !== 'number' || Number.isNaN(abs) || abs > 5) {
+    if (Scheduler.unstable_now() !== performance.now()) {
       throw 'API does not work';
     }
 
@@ -176,7 +175,7 @@ function checkEndToEndIntegration() {
       SchedulerTracing.unstable_trace('render', 123, () => {
         ReactDOM.render(
           React.createElement(
-            React.Profiler,
+            React.unstable_Profiler,
             {id: 'profiler', onRender},
             React.createElement('div', null, 'hi')
           ),

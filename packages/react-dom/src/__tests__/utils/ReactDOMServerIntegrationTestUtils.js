@@ -19,28 +19,6 @@ module.exports = function(initModules) {
     ({ReactDOM, ReactDOMServer} = initModules());
   }
 
-  function shouldUseDocument(reactElement) {
-    // Used for whole document tests.
-    return reactElement && reactElement.type === 'html';
-  }
-
-  function getContainerFromMarkup(reactElement, markup) {
-    if (shouldUseDocument(reactElement)) {
-      const doc = document.implementation.createHTMLDocument('');
-      doc.open();
-      doc.write(
-        markup ||
-          '<!doctype html><html><meta charset=utf-8><title>test doc</title>',
-      );
-      doc.close();
-      return doc;
-    } else {
-      const container = document.createElement('div');
-      container.innerHTML = markup;
-      return container;
-    }
-  }
-
   // Helper functions for rendering tests
   // ====================================
 
@@ -119,7 +97,9 @@ module.exports = function(initModules) {
   // Does not render on client or perform client-side revival.
   async function serverRender(reactElement, errorCount = 0) {
     const markup = await renderIntoString(reactElement, errorCount);
-    return getContainerFromMarkup(reactElement, markup).firstChild;
+    const domElement = document.createElement('div');
+    domElement.innerHTML = markup;
+    return domElement.firstChild;
   }
 
   // this just drains a readable piped into it to a string, which can be accessed
@@ -153,28 +133,27 @@ module.exports = function(initModules) {
   // Does not render on client or perform client-side revival.
   async function streamRender(reactElement, errorCount = 0) {
     const markup = await renderIntoStream(reactElement, errorCount);
-    return getContainerFromMarkup(reactElement, markup).firstChild;
+    const domElement = document.createElement('div');
+    domElement.innerHTML = markup;
+    return domElement.firstChild;
   }
 
   const clientCleanRender = (element, errorCount = 0) => {
-    if (shouldUseDocument(element)) {
-      // Documents can't be rendered from scratch.
-      return clientRenderOnServerString(element, errorCount);
-    }
-    const container = document.createElement('div');
-    return renderIntoDom(element, container, false, errorCount);
+    const div = document.createElement('div');
+    return renderIntoDom(element, div, false, errorCount);
   };
 
   const clientRenderOnServerString = async (element, errorCount = 0) => {
     const markup = await renderIntoString(element, errorCount);
     resetModules();
 
-    let container = getContainerFromMarkup(element, markup);
-    let serverNode = container.firstChild;
+    const domElement = document.createElement('div');
+    domElement.innerHTML = markup;
+    let serverNode = domElement.firstChild;
 
     const firstClientNode = await renderIntoDom(
       element,
-      container,
+      domElement,
       true,
       errorCount,
     );
@@ -199,35 +178,19 @@ module.exports = function(initModules) {
 
   const clientRenderOnBadMarkup = async (element, errorCount = 0) => {
     // First we render the top of bad mark up.
-
-    let container = getContainerFromMarkup(
-      element,
-      shouldUseDocument(element)
-        ? '<html><body><div id="badIdWhichWillCauseMismatch" /></body></html>'
-        : '<div id="badIdWhichWillCauseMismatch" data-reactroot="" data-reactid="1"></div>',
-    );
-
-    await renderIntoDom(element, container, true, errorCount + 1);
+    const domElement = document.createElement('div');
+    domElement.innerHTML =
+      '<div id="badIdWhichWillCauseMismatch" data-reactroot="" data-reactid="1"></div>';
+    await renderIntoDom(element, domElement, true, errorCount + 1);
 
     // This gives us the resulting text content.
-    const hydratedTextContent =
-      container.lastChild && container.lastChild.textContent;
+    const hydratedTextContent = domElement.textContent;
 
     // Next we render the element into a clean DOM node client side.
-    let cleanContainer;
-    if (shouldUseDocument(element)) {
-      // We can't render into a document during a clean render,
-      // so instead, we'll render the children into the document element.
-      cleanContainer = getContainerFromMarkup(element, '<html></html>')
-        .documentElement;
-      element = element.props.children;
-    } else {
-      cleanContainer = document.createElement('div');
-    }
-    await asyncReactDOMRender(element, cleanContainer, true);
+    const cleanDomElement = document.createElement('div');
+    await asyncReactDOMRender(element, cleanDomElement, true);
     // This gives us the expected text content.
-    const cleanTextContent =
-      cleanContainer.lastChild && cleanContainer.lastChild.textContent;
+    const cleanTextContent = cleanDomElement.textContent;
 
     // The only guarantee is that text content has been patched up if needed.
     expect(hydratedTextContent).toBe(cleanTextContent);
@@ -357,7 +320,6 @@ module.exports = function(initModules) {
     asyncReactDOMRender,
     serverRender,
     clientCleanRender,
-    clientRenderOnBadMarkup,
     clientRenderOnServerString,
     renderIntoDom,
     streamRender,

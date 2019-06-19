@@ -14,13 +14,6 @@ describe('Scheduling UMD bundle', () => {
     global.__UMD__ = true;
 
     jest.resetModules();
-
-    jest.mock('scheduler', () => require.requireActual('scheduler'));
-    jest.mock('scheduler/src/SchedulerHostConfig', () =>
-      require.requireActual(
-        'scheduler/src/forks/SchedulerHostConfig.default.js',
-      ),
-    );
   });
 
   function filterPrivateKeys(name) {
@@ -55,8 +48,7 @@ describe('Scheduling UMD bundle', () => {
     const umdAPIDev = require('../../npm/umd/scheduler.development');
     const umdAPIProd = require('../../npm/umd/scheduler.production.min');
     const umdAPIProfiling = require('../../npm/umd/scheduler.profiling.min');
-    const secretAPI = require('react/src/forks/ReactSharedInternals.umd')
-      .default;
+    const secretAPI = require('react/src/ReactSharedInternals').default;
     validateForwardedAPIs(api, [
       umdAPIDev,
       umdAPIProd,
@@ -70,8 +62,7 @@ describe('Scheduling UMD bundle', () => {
     const umdAPIDev = require('../../npm/umd/scheduler-tracing.development');
     const umdAPIProd = require('../../npm/umd/scheduler-tracing.production.min');
     const umdAPIProfiling = require('../../npm/umd/scheduler-tracing.profiling.min');
-    const secretAPI = require('react/src/forks/ReactSharedInternals.umd')
-      .default;
+    const secretAPI = require('react/src/ReactSharedInternals').default;
     validateForwardedAPIs(api, [
       umdAPIDev,
       umdAPIProd,

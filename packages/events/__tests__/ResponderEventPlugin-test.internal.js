@@ -11,7 +11,7 @@
 
 const {HostComponent} = require('shared/ReactWorkTags');
 
-let EventBatching;
+let EventPluginHub;
 let EventPluginUtils;
 let ResponderEventPlugin;
 
@@ -321,7 +321,7 @@ const run = function(config, hierarchyConfig, nativeEventConfig) {
   // At this point the negotiation events have been dispatched as part of the
   // extraction process, but not the side effectful events. Below, we dispatch
   // side effectful events.
-  EventBatching.runEventsInBatch(extractedEvents);
+  EventPluginHub.runEventsInBatch(extractedEvents);
 
   // Ensure that every event that declared an `order`, was actually dispatched.
   expect('number of events dispatched:' + runData.dispatchCount).toBe(
@@ -403,7 +403,7 @@ describe('ResponderEventPlugin', () => {
     jest.resetModules();
 
     const ReactDOMUnstableNativeDependencies = require('react-dom/unstable-native-dependencies');
-    EventBatching = require('events/EventBatching');
+    EventPluginHub = require('events/EventPluginHub');
     EventPluginUtils = require('events/EventPluginUtils');
     ResponderEventPlugin =
       ReactDOMUnstableNativeDependencies.ResponderEventPlugin;

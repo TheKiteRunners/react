@@ -9,10 +9,9 @@
 
 'use strict';
 
-let React = require('react');
+const React = require('react');
 let ReactDOM = require('react-dom');
 let ReactFeatureFlags;
-let Scheduler;
 
 const setUntrackedChecked = Object.getOwnPropertyDescriptor(
   HTMLInputElement.prototype,
@@ -479,16 +478,13 @@ describe('ChangeEventPlugin', () => {
     }
   });
 
-  describe('concurrent mode', () => {
+  describe('async mode', () => {
     beforeEach(() => {
       jest.resetModules();
       ReactFeatureFlags = require('shared/ReactFeatureFlags');
       ReactFeatureFlags.debugRenderPhaseSideEffectsForStrictMode = false;
-      React = require('react');
       ReactDOM = require('react-dom');
-      Scheduler = require('scheduler');
     });
-
     it('text input', () => {
       const root = ReactDOM.unstable_createRoot(container);
       let input;
@@ -519,7 +515,7 @@ describe('ChangeEventPlugin', () => {
       expect(ops).toEqual([]);
       expect(input).toBe(undefined);
       // Flush callbacks.
-      Scheduler.flushAll();
+      jest.runAllTimers();
       expect(ops).toEqual(['render: initial']);
       expect(input.value).toBe('initial');
 
@@ -569,7 +565,7 @@ describe('ChangeEventPlugin', () => {
       expect(ops).toEqual([]);
       expect(input).toBe(undefined);
       // Flush callbacks.
-      Scheduler.flushAll();
+      jest.runAllTimers();
       expect(ops).toEqual(['render: false']);
       expect(input.checked).toBe(false);
 
@@ -585,7 +581,7 @@ describe('ChangeEventPlugin', () => {
 
       // Now let's make sure we're using the controlled value.
       root.render(<ControlledInput reverse={true} />);
-      Scheduler.flushAll();
+      jest.runAllTimers();
 
       ops = [];
 
@@ -628,7 +624,7 @@ describe('ChangeEventPlugin', () => {
       expect(ops).toEqual([]);
       expect(textarea).toBe(undefined);
       // Flush callbacks.
-      Scheduler.flushAll();
+      jest.runAllTimers();
       expect(ops).toEqual(['render: initial']);
       expect(textarea.value).toBe('initial');
 
@@ -679,7 +675,7 @@ describe('ChangeEventPlugin', () => {
       expect(ops).toEqual([]);
       expect(input).toBe(undefined);
       // Flush callbacks.
-      Scheduler.flushAll();
+      jest.runAllTimers();
       expect(ops).toEqual(['render: initial']);
       expect(input.value).toBe('initial');
 
@@ -730,7 +726,7 @@ describe('ChangeEventPlugin', () => {
       expect(ops).toEqual([]);
       expect(input).toBe(undefined);
       // Flush callbacks.
-      Scheduler.flushAll();
+      jest.runAllTimers();
       expect(ops).toEqual(['render: initial']);
       expect(input.value).toBe('initial');
 
@@ -745,7 +741,7 @@ describe('ChangeEventPlugin', () => {
       expect(input.value).toBe('initial');
 
       // Flush callbacks.
-      Scheduler.flushAll();
+      jest.runAllTimers();
       // Now the click update has flushed.
       expect(ops).toEqual(['render: ']);
       expect(input.value).toBe('');

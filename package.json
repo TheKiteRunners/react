@@ -1,5 +1,6 @@
 {
   "private": true,
+  "version": "16.6.1",
   "workspaces": [
     "packages/*"
   ],
@@ -57,7 +58,7 @@
     "flow-bin": "^0.72.0",
     "glob": "^6.0.4",
     "glob-stream": "^6.1.0",
-    "google-closure-compiler": "20190301.0.0",
+    "google-closure-compiler": "20190106.0.0",
     "gzip-size": "^3.0.0",
     "jasmine-check": "^1.0.0-rc.0",
     "jest": "^23.1.0",
@@ -87,7 +88,7 @@
     "@mattiasbuelens/web-streams-polyfill": "0.1.0"
   },
   "devEngines": {
-    "node": "8.x || 9.x || 10.x || 11.x || 12.x"
+    "node": "8.x || 9.x || 10.x || 11.x"
   },
   "jest": {
     "testRegex": "/scripts/jest/dont-run-jest-directly\\.js$"
@@ -97,18 +98,15 @@
     "linc": "node ./scripts/tasks/linc.js",
     "lint": "node ./scripts/tasks/eslint.js",
     "lint-build": "node ./scripts/rollup/validate/index.js",
-    "extract-errors": "yarn build --type=dev --extract-errors",
     "postinstall": "node node_modules/fbjs-scripts/node/check-dev-engines.js package.json && node ./scripts/flow/createFlowConfigs.js",
     "debug-test": "cross-env NODE_ENV=development node --inspect-brk node_modules/.bin/jest --config ./scripts/jest/config.source.js --runInBand",
     "test": "cross-env NODE_ENV=development jest --config ./scripts/jest/config.source.js",
-    "test-persistent": "cross-env NODE_ENV=development jest --config ./scripts/jest/config.source-persistent.js",
     "test-fire": "cross-env NODE_ENV=development jest --config ./scripts/jest/config.source-fire.js",
     "test-prod": "cross-env NODE_ENV=production jest --config ./scripts/jest/config.source.js",
     "test-fire-prod": "cross-env NODE_ENV=production jest --config ./scripts/jest/config.source-fire.js",
     "test-prod-build": "yarn test-build-prod",
     "test-build": "cross-env NODE_ENV=development jest --config ./scripts/jest/config.build.js",
     "test-build-prod": "cross-env NODE_ENV=production jest --config ./scripts/jest/config.build.js",
-    "test-dom-fixture": "cd fixtures/dom && yarn && yarn prestart && yarn test",
     "flow": "node ./scripts/tasks/flow.js",
     "flow-ci": "node ./scripts/tasks/flow-ci.js",
     "prettier": "node ./scripts/prettier/index.js write-changed",

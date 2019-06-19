@@ -18,7 +18,7 @@ export type DispatchConfig = {
     captured: string,
   },
   registrationName?: string,
-  isDiscrete?: boolean,
+  isInteractive?: boolean,
 };
 
 export type ReactSyntheticEvent = {

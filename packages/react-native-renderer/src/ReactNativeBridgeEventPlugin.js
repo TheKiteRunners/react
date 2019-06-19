@@ -13,17 +13,13 @@ import {
   accumulateDirectDispatches,
 } from 'events/EventPropagators';
 import type {TopLevelType} from 'events/TopLevelEventTypes';
-import SyntheticEvent from 'events/SyntheticEvent';
-import invariant from 'shared/invariant';
-
-// Module provided by RN:
-import {ReactNativeViewConfigRegistry} from 'react-native/Libraries/ReactPrivate/ReactNativePrivateInterface';
-
-const {
+import {
   customBubblingEventTypes,
   customDirectEventTypes,
   eventTypes,
-} = ReactNativeViewConfigRegistry;
+} from 'ReactNativeViewConfigRegistry';
+import SyntheticEvent from 'events/SyntheticEvent';
+import invariant from 'shared/invariant';
 
 const ReactNativeBridgeEventPlugin = {
   eventTypes: eventTypes,

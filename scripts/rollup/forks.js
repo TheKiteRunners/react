@@ -159,25 +159,26 @@ const forks = Object.freeze({
 
   'scheduler/src/SchedulerFeatureFlags': (bundleType, entry, dependencies) => {
     if (
-      bundleType === FB_WWW_DEV ||
-      bundleType === FB_WWW_PROD ||
-      bundleType === FB_WWW_PROFILING
+      entry === 'scheduler' &&
+      (bundleType === FB_WWW_DEV ||
+        bundleType === FB_WWW_PROD ||
+        bundleType === FB_WWW_PROFILING)
     ) {
       return 'scheduler/src/forks/SchedulerFeatureFlags.www.js';
     }
     return 'scheduler/src/SchedulerFeatureFlags';
   },
 
-  'scheduler/src/SchedulerHostConfig': (bundleType, entry, dependencies) => {
-    if (
-      entry === 'scheduler/unstable_mock' ||
-      entry === 'react-noop-renderer' ||
-      entry === 'react-noop-renderer/persistent' ||
-      entry === 'react-test-renderer'
-    ) {
-      return 'scheduler/src/forks/SchedulerHostConfig.mock';
+  // This logic is forked on www to fork the formatting function.
+  'shared/invariant': (bundleType, entry) => {
+    switch (bundleType) {
+      case FB_WWW_DEV:
+      case FB_WWW_PROD:
+      case FB_WWW_PROFILING:
+        return 'shared/forks/invariant.www.js';
+      default:
+        return null;
     }
-    return 'scheduler/src/forks/SchedulerHostConfig.default';
   },
 
   // This logic is forked on www to ignore some warnings.
@@ -225,17 +226,6 @@ const forks = Object.freeze({
       case FB_WWW_PROD:
       case FB_WWW_PROFILING:
         return 'react/src/forks/ReactCurrentDispatcher.www.js';
-      default:
-        return null;
-    }
-  },
-
-  'react/src/ReactSharedInternals.js': (bundleType, entry) => {
-    switch (bundleType) {
-      case UMD_DEV:
-      case UMD_PROD:
-      case UMD_PROFILING:
-        return 'react/src/forks/ReactSharedInternals.umd.js';
       default:
         return null;
     }

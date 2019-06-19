@@ -8,8 +8,6 @@
  * @flow strict-local
  */
 
-/* eslint-disable react-internal/warning-and-invariant-args */
-
 'use strict';
 
 import type {

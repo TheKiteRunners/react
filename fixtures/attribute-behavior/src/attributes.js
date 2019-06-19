@@ -449,11 +449,6 @@ const attributes = [
   },
   {name: 'disabled', tagName: 'input'},
   {
-    name: 'disablePictureInPicture',
-    tagName: 'video',
-    read: getProperty('disablepictureinpicture'),
-  },
-  {
     name: 'display',
     tagName: 'svg',
     overrideStringValue: 'list-item',

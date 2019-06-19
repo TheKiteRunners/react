@@ -46,11 +46,7 @@ const run = async ({cwd}) => {
     'Verifying "scheduler/tracing" fixture'
   );
   if (errorMessage) {
-    console.error(
-      theme.error('✗'),
-      'Verifying "scheduler/tracing" fixture\n ',
-      theme.error(errorMessage)
-    );
+    console.error(theme.error(errorMessage));
     process.exit(1);
   }
 };

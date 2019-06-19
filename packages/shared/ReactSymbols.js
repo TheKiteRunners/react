@@ -32,8 +32,6 @@ export const REACT_PROVIDER_TYPE = hasSymbol
 export const REACT_CONTEXT_TYPE = hasSymbol
   ? Symbol.for('react.context')
   : 0xeace;
-// TODO: We don't use AsyncMode or ConcurrentMode anymore. They were temporary
-// (unstable) APIs that have been removed. Can we remove the symbols?
 export const REACT_ASYNC_MODE_TYPE = hasSymbol
   ? Symbol.for('react.async_mode')
   : 0xeacf;
@@ -48,17 +46,6 @@ export const REACT_SUSPENSE_TYPE = hasSymbol
   : 0xead1;
 export const REACT_MEMO_TYPE = hasSymbol ? Symbol.for('react.memo') : 0xead3;
 export const REACT_LAZY_TYPE = hasSymbol ? Symbol.for('react.lazy') : 0xead4;
-export const REACT_EVENT_COMPONENT_TYPE = hasSymbol
-  ? Symbol.for('react.event_component')
-  : 0xead5;
-export const REACT_EVENT_TARGET_TYPE = hasSymbol
-  ? Symbol.for('react.event_target')
-  : 0xead6;
-
-// React event targets
-export const REACT_EVENT_TARGET_TOUCH_HIT = hasSymbol
-  ? Symbol.for('react.event_target.touch_hit')
-  : 0xead7;
 
 const MAYBE_ITERATOR_SYMBOL = typeof Symbol === 'function' && Symbol.iterator;
 const FAUX_ITERATOR_SYMBOL = '@@iterator';

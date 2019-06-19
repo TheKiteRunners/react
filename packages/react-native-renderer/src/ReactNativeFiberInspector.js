@@ -17,7 +17,7 @@ import getComponentName from 'shared/getComponentName';
 import {HostComponent} from 'shared/ReactWorkTags';
 import invariant from 'shared/invariant';
 // Module provided by RN:
-import {UIManager} from 'react-native/Libraries/ReactPrivate/ReactNativePrivateInterface';
+import UIManager from 'UIManager';
 
 import {getClosestInstanceFromNode} from './ReactNativeComponentTree';
 

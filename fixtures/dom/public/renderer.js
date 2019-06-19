@@ -13,30 +13,6 @@
   var renders = 0;
   var failed = false;
 
-  var needsReactDOM = getBooleanQueryParam('needsReactDOM');
-  var needsCreateElement = getBooleanQueryParam('needsCreateElement');
-
-  function unmountComponent(node) {
-    // ReactDOM was moved into a separate package in 0.14
-    if (needsReactDOM) {
-      ReactDOM.unmountComponentAtNode(node);
-    } else if (React.unmountComponentAtNode) {
-      React.unmountComponentAtNode(node);
-    } else {
-      // Unmounting for React 0.4 and lower
-      React.unmountAndReleaseReactRootNode(node);
-    }
-  }
-
-  function createElement(value) {
-    // React.createElement replaced function invocation in 0.12
-    if (needsCreateElement) {
-      return React.createElement(value);
-    } else {
-      return value();
-    }
-  }
-
   function getQueryParam(key) {
     var pattern = new RegExp(key + '=([^&]+)(&|$)');
     var matches = window.location.search.match(pattern);
@@ -59,56 +35,20 @@
   function prerender() {
     setStatus('Generating markup');
 
-    return Promise.resolve()
-      .then(function() {
-        const element = createElement(Fixture);
+    output.innerHTML = ReactDOMServer.renderToString(
+      React.createElement(Fixture)
+    );
 
-        // Server rendering moved to a separate package along with ReactDOM
-        // in 0.14.0
-        if (needsReactDOM) {
-          return ReactDOMServer.renderToString(element);
-        }
-
-        // React.renderComponentToString was renamed in 0.12
-        if (React.renderToString) {
-          return React.renderToString(element);
-        }
-
-        // React.renderComponentToString became synchronous in React 0.9.0
-        if (React.renderComponentToString.length === 1) {
-          return React.renderComponentToString(element);
-        }
-
-        // Finally, React 0.4 and lower emits markup in a callback
-        return new Promise(function(resolve) {
-          React.renderComponentToString(element, resolve);
-        });
-      })
-      .then(function(string) {
-        output.innerHTML = string;
-        setStatus('Markup only (No React)');
-      })
-      .catch(handleError);
+    setStatus('Markup only (No React)');
   }
 
   function render() {
     setStatus('Hydrating');
 
-    var element = createElement(Fixture);
-
-    // ReactDOM was split out into another package in 0.14
-    if (needsReactDOM) {
-      // Hydration changed to a separate method in React 16
-      if (ReactDOM.hydrate) {
-        ReactDOM.hydrate(element, output);
-      } else {
-        ReactDOM.render(element, output);
-      }
-    } else if (React.render) {
-      // React.renderComponent was renamed in 0.12
-      React.render(element, output);
+    if (ReactDOM.hydrate) {
+      ReactDOM.hydrate(React.createElement(Fixture), output);
     } else {
-      React.renderComponent(element, output);
+      ReactDOM.render(React.createElement(Fixture), output);
     }
 
     setStatus(renders > 0 ? 'Re-rendered (' + renders + 'x)' : 'Hydrated');
@@ -145,17 +85,17 @@
       setStatus('Failed');
       output.innerHTML = 'Please name your root component "Fixture"';
     } else {
-      prerender().then(function() {
-        if (getBooleanQueryParam('hydrate')) {
-          render();
-        }
-      });
+      prerender();
+
+      if (getBooleanQueryParam('hydrate')) {
+        render();
+      }
     }
   }
 
   function reloadFixture(code) {
     renders = 0;
-    unmountComponent(output);
+    ReactDOM.unmountComponentAtNode(output);
     injectFixture(code);
   }
 
@@ -169,12 +109,12 @@
 
   loadScript(getQueryParam('reactPath'))
     .then(function() {
-      if (needsReactDOM) {
-        return Promise.all([
-          loadScript(getQueryParam('reactDOMPath')),
-          loadScript(getQueryParam('reactDOMServerPath')),
-        ]);
-      }
+      return getBooleanQueryParam('needsReactDOM')
+        ? loadScript(getQueryParam('reactDOMPath'))
+        : null;
+    })
+    .then(function() {
+      return loadScript(getQueryParam('reactDOMServerPath'));
     })
     .then(function() {
       if (failed) {

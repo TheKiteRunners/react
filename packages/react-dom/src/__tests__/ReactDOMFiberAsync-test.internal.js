@@ -10,11 +10,11 @@
 'use strict';
 
 const React = require('react');
-const Fragment = React.Fragment;
 let ReactFeatureFlags = require('shared/ReactFeatureFlags');
 
 let ReactDOM;
-let Scheduler;
+
+const ConcurrentMode = React.unstable_ConcurrentMode;
 
 const setUntrackedInputValue = Object.getOwnPropertyDescriptor(
   HTMLInputElement.prototype,
@@ -25,10 +25,33 @@ describe('ReactDOMFiberAsync', () => {
   let container;
 
   beforeEach(() => {
+    // TODO pull this into helper method, reduce repetition.
+    // mock the browser APIs which are used in schedule:
+    // - requestAnimationFrame should pass the DOMHighResTimeStamp argument
+    // - calling 'window.postMessage' should actually fire postmessage handlers
+    global.requestAnimationFrame = function(cb) {
+      return setTimeout(() => {
+        cb(Date.now());
+      });
+    };
+    const originalAddEventListener = global.addEventListener;
+    let postMessageCallback;
+    global.addEventListener = function(eventName, callback, useCapture) {
+      if (eventName === 'message') {
+        postMessageCallback = callback;
+      } else {
+        originalAddEventListener(eventName, callback, useCapture);
+      }
+    };
+    global.postMessage = function(messageKey, targetOrigin) {
+      const postMessageEvent = {source: window, data: messageKey};
+      if (postMessageCallback) {
+        postMessageCallback(postMessageEvent);
+      }
+    };
     jest.resetModules();
     container = document.createElement('div');
     ReactDOM = require('react-dom');
-    Scheduler = require('scheduler');
 
     document.body.appendChild(container);
   });
@@ -84,9 +107,12 @@ describe('ReactDOMFiberAsync', () => {
         );
       }
     }
-    const root = ReactDOM.unstable_createRoot(container);
-    root.render(<Counter />);
-    Scheduler.flushAll();
+    ReactDOM.render(
+      <ConcurrentMode>
+        <Counter />
+      </ConcurrentMode>,
+      container,
+    );
     expect(asyncValueRef.current.textContent).toBe('');
     expect(syncValueRef.current.textContent).toBe('');
 
@@ -98,34 +124,58 @@ describe('ReactDOMFiberAsync', () => {
 
     // Should flush both updates now.
     jest.runAllTimers();
-    Scheduler.flushAll();
     expect(asyncValueRef.current.textContent).toBe('hello');
     expect(syncValueRef.current.textContent).toBe('hello');
   });
 
-  describe('concurrent mode', () => {
+  describe('with feature flag disabled', () => {
+    beforeEach(() => {
+      jest.resetModules();
+      ReactFeatureFlags = require('shared/ReactFeatureFlags');
+      ReactDOM = require('react-dom');
+    });
+
+    it('renders synchronously', () => {
+      ReactDOM.render(
+        <ConcurrentMode>
+          <div>Hi</div>
+        </ConcurrentMode>,
+        container,
+      );
+      expect(container.textContent).toEqual('Hi');
+
+      ReactDOM.render(
+        <ConcurrentMode>
+          <div>Bye</div>
+        </ConcurrentMode>,
+        container,
+      );
+      expect(container.textContent).toEqual('Bye');
+    });
+  });
+
+  describe('with feature flag enabled', () => {
     beforeEach(() => {
       jest.resetModules();
       ReactFeatureFlags = require('shared/ReactFeatureFlags');
       ReactFeatureFlags.debugRenderPhaseSideEffectsForStrictMode = false;
       ReactDOM = require('react-dom');
-      Scheduler = require('scheduler');
     });
 
-    it('top-level updates are concurrent', () => {
+    it('createRoot makes the entire tree async', () => {
       const root = ReactDOM.unstable_createRoot(container);
       root.render(<div>Hi</div>);
       expect(container.textContent).toEqual('');
-      Scheduler.flushAll();
+      jest.runAllTimers();
       expect(container.textContent).toEqual('Hi');
 
       root.render(<div>Bye</div>);
       expect(container.textContent).toEqual('Hi');
-      Scheduler.flushAll();
+      jest.runAllTimers();
       expect(container.textContent).toEqual('Bye');
     });
 
-    it('deep updates (setState) are oncurrent', () => {
+    it('updates inside an async tree are async by default', () => {
       let instance;
       class Component extends React.Component {
         state = {step: 0};
@@ -138,12 +188,62 @@ describe('ReactDOMFiberAsync', () => {
       const root = ReactDOM.unstable_createRoot(container);
       root.render(<Component />);
       expect(container.textContent).toEqual('');
-      Scheduler.flushAll();
+      jest.runAllTimers();
       expect(container.textContent).toEqual('0');
 
       instance.setState({step: 1});
       expect(container.textContent).toEqual('0');
-      Scheduler.flushAll();
+      jest.runAllTimers();
+      expect(container.textContent).toEqual('1');
+    });
+
+    it('ConcurrentMode creates an async subtree', () => {
+      let instance;
+      class Component extends React.Component {
+        state = {step: 0};
+        render() {
+          instance = this;
+          return <div>{this.state.step}</div>;
+        }
+      }
+
+      ReactDOM.render(
+        <ConcurrentMode>
+          <Component />
+        </ConcurrentMode>,
+        container,
+      );
+      jest.runAllTimers();
+
+      instance.setState({step: 1});
+      expect(container.textContent).toEqual('0');
+      jest.runAllTimers();
+      expect(container.textContent).toEqual('1');
+    });
+
+    it('updates inside an async subtree are async by default', () => {
+      let instance;
+      class Child extends React.Component {
+        state = {step: 0};
+        render() {
+          instance = this;
+          return <div>{this.state.step}</div>;
+        }
+      }
+
+      ReactDOM.render(
+        <div>
+          <ConcurrentMode>
+            <Child />
+          </ConcurrentMode>
+        </div>,
+        container,
+      );
+      jest.runAllTimers();
+
+      instance.setState({step: 1});
+      expect(container.textContent).toEqual('0');
+      jest.runAllTimers();
       expect(container.textContent).toEqual('1');
     });
 
@@ -263,9 +363,13 @@ describe('ReactDOMFiberAsync', () => {
         }
       }
 
-      const root = ReactDOM.unstable_createRoot(container);
-      root.render(<Component />);
-      Scheduler.flushAll();
+      ReactDOM.render(
+        <ConcurrentMode>
+          <Component />
+        </ConcurrentMode>,
+        container,
+      );
+      jest.runAllTimers();
 
       // Updates are async by default
       instance.push('A');
@@ -288,7 +392,7 @@ describe('ReactDOMFiberAsync', () => {
       expect(ops).toEqual(['BC']);
 
       // Flush the async updates
-      Scheduler.flushAll();
+      jest.runAllTimers();
       expect(container.textContent).toEqual('ABCD');
       expect(ops).toEqual(['BC', 'ABCD']);
     });
@@ -304,15 +408,18 @@ describe('ReactDOMFiberAsync', () => {
           return this.state.counter;
         }
       }
-      const root = ReactDOM.unstable_createRoot(container);
-      root.render(<Counter />);
-      Scheduler.flushAll();
+      ReactDOM.render(
+        <ConcurrentMode>
+          <Counter />
+        </ConcurrentMode>,
+        container,
+      );
       expect(container.textContent).toEqual('0');
 
       // Test that a normal update is async
       inst.increment();
       expect(container.textContent).toEqual('0');
-      Scheduler.flushAll();
+      jest.runAllTimers();
       expect(container.textContent).toEqual('1');
 
       let ops = [];
@@ -418,7 +525,7 @@ describe('ReactDOMFiberAsync', () => {
       const root = ReactDOM.unstable_createRoot(container);
       root.render(<Form />);
       // Flush
-      Scheduler.flushAll();
+      jest.runAllTimers();
 
       let disableButton = disableButtonRef.current;
       expect(disableButton.tagName).toBe('BUTTON');
@@ -485,7 +592,7 @@ describe('ReactDOMFiberAsync', () => {
       const root = ReactDOM.unstable_createRoot(container);
       root.render(<Form />);
       // Flush
-      Scheduler.flushAll();
+      jest.runAllTimers();
 
       let disableButton = disableButtonRef.current;
       expect(disableButton.tagName).toBe('BUTTON');
@@ -545,7 +652,7 @@ describe('ReactDOMFiberAsync', () => {
       const root = ReactDOM.unstable_createRoot(container);
       root.render(<Form />);
       // Flush
-      Scheduler.flushAll();
+      jest.runAllTimers();
 
       let enableButton = enableButtonRef.current;
       expect(enableButton.tagName).toBe('BUTTON');
@@ -569,117 +676,6 @@ describe('ReactDOMFiberAsync', () => {
 
       // Therefore the form should have been submitted.
       expect(formSubmitted).toBe(true);
-    });
-  });
-
-  describe('createSyncRoot', () => {
-    it('updates flush without yielding in the next event', () => {
-      const root = ReactDOM.unstable_createSyncRoot(container);
-
-      function Text(props) {
-        Scheduler.yieldValue(props.text);
-        return props.text;
-      }
-
-      root.render(
-        <React.Fragment>
-          <Text text="A" />
-          <Text text="B" />
-          <Text text="C" />
-        </React.Fragment>,
-      );
-
-      // Nothing should have rendered yet
-      expect(container.textContent).toEqual('');
-
-      // Everything should render immediately in the next event
-      expect(Scheduler).toFlushExpired(['A', 'B', 'C']);
-      expect(container.textContent).toEqual('ABC');
-    });
-
-    it('does not support createBatch', () => {
-      const root = ReactDOM.unstable_createSyncRoot(container);
-      expect(root.createBatch).toBe(undefined);
-    });
-  });
-
-  describe('Disable yielding', () => {
-    beforeEach(() => {
-      jest.resetModules();
-      ReactFeatureFlags = require('shared/ReactFeatureFlags');
-      ReactFeatureFlags.disableYielding = true;
-      ReactFeatureFlags.debugRenderPhaseSideEffectsForStrictMode = false;
-      ReactDOM = require('react-dom');
-      Scheduler = require('scheduler');
-    });
-
-    it('wont yield during a render if yielding is disabled', () => {
-      class A extends React.Component {
-        render() {
-          Scheduler.yieldValue('A');
-          return <div>{this.props.children}</div>;
-        }
-      }
-
-      class B extends React.Component {
-        render() {
-          Scheduler.yieldValue('B');
-          return <div>{this.props.children}</div>;
-        }
-      }
-
-      class C extends React.Component {
-        render() {
-          Scheduler.yieldValue('C');
-          return <div>{this.props.children}</div>;
-        }
-      }
-
-      let root = ReactDOM.unstable_createRoot(container);
-
-      root.render(
-        <Fragment>
-          <A />
-          <B />
-          <C />
-        </Fragment>,
-      );
-
-      expect(Scheduler).toHaveYielded([]);
-
-      Scheduler.unstable_flushNumberOfYields(2);
-      // Even though we just flushed two yields, we should have rendered
-      // everything without yielding when the flag is on.
-      expect(Scheduler).toHaveYielded(['A', 'B', 'C']);
-    });
-
-    it('wont suspend during a render if yielding is disabled', () => {
-      let p = new Promise(resolve => {});
-
-      function Suspend() {
-        throw p;
-      }
-
-      let root = ReactDOM.unstable_createRoot(container);
-      root.render(
-        <React.Suspense fallback={'Loading'}>Initial</React.Suspense>,
-      );
-
-      Scheduler.flushAll();
-      expect(container.textContent).toBe('Initial');
-
-      root.render(
-        <React.Suspense fallback={'Loading'}>
-          <Suspend />
-        </React.Suspense>,
-      );
-
-      expect(Scheduler).toHaveYielded([]);
-
-      Scheduler.flushAll();
-
-      // This should have flushed to the DOM even though we haven't ran the timers.
-      expect(container.textContent).toBe('Loading');
     });
   });
 });

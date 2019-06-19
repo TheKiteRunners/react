@@ -1,6 +1,6 @@
 import React, {PureComponent} from 'react';
-import {flushSync, unstable_createRoot} from 'react-dom';
-import Scheduler from 'scheduler';
+import {flushSync, render} from 'react-dom';
+import {unstable_scheduleCallback} from 'scheduler';
 import _ from 'lodash';
 import Charts from './Charts';
 import Clock from './Clock';
@@ -67,7 +67,7 @@ class App extends PureComponent {
     }
     this._ignoreClick = true;
 
-    Scheduler.unstable_next(() => {
+    unstable_scheduleCallback(() => {
       this.setState({showDemo: true}, () => {
         this._ignoreClick = false;
       });
@@ -146,5 +146,9 @@ class App extends PureComponent {
 }
 
 const container = document.getElementById('root');
-const root = ReactDOM.unstable_createRoot(container);
-root.render(<App />, container);
+render(
+  <React.unstable_ConcurrentMode>
+    <App />
+  </React.unstable_ConcurrentMode>,
+  container
+);

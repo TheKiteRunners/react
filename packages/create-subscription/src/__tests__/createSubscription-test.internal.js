@@ -14,7 +14,6 @@ let BehaviorSubject;
 let ReactFeatureFlags;
 let React;
 let ReactNoop;
-let Scheduler;
 let ReplaySubject;
 
 describe('createSubscription', () => {
@@ -25,7 +24,6 @@ describe('createSubscription', () => {
     ReactFeatureFlags.debugRenderPhaseSideEffectsForStrictMode = false;
     React = require('react');
     ReactNoop = require('react-noop-renderer');
-    Scheduler = require('scheduler');
 
     BehaviorSubject = require('rxjs/BehaviorSubject').BehaviorSubject;
     ReplaySubject = require('rxjs/ReplaySubject').ReplaySubject;
@@ -60,23 +58,23 @@ describe('createSubscription', () => {
     ReactNoop.render(
       <Subscription source={observable}>
         {(value = 'default') => {
-          Scheduler.yieldValue(value);
+          ReactNoop.yield(value);
           return null;
         }}
       </Subscription>,
     );
 
     // Updates while subscribed should re-render the child component
-    expect(Scheduler).toFlushAndYield(['default']);
+    expect(ReactNoop.flush()).toEqual(['default']);
     observable.next(123);
-    expect(Scheduler).toFlushAndYield([123]);
+    expect(ReactNoop.flush()).toEqual([123]);
     observable.next('abc');
-    expect(Scheduler).toFlushAndYield(['abc']);
+    expect(ReactNoop.flush()).toEqual(['abc']);
 
     // Unmounting the subscriber should remove listeners
     ReactNoop.render(<div />);
     observable.next(456);
-    expect(Scheduler).toFlushAndYield([]);
+    expect(ReactNoop.flush()).toEqual([]);
   });
 
   it('should support observable types like RxJS ReplaySubject', () => {
@@ -97,20 +95,20 @@ describe('createSubscription', () => {
     });
 
     function render(value = 'default') {
-      Scheduler.yieldValue(value);
+      ReactNoop.yield(value);
       return null;
     }
 
     const observable = createReplaySubject('initial');
 
     ReactNoop.render(<Subscription source={observable}>{render}</Subscription>);
-    expect(Scheduler).toFlushAndYield(['initial']);
+    expect(ReactNoop.flush()).toEqual(['initial']);
     observable.next('updated');
-    expect(Scheduler).toFlushAndYield(['updated']);
+    expect(ReactNoop.flush()).toEqual(['updated']);
 
     // Unsetting the subscriber prop should reset subscribed values
     ReactNoop.render(<Subscription>{render}</Subscription>);
-    expect(Scheduler).toFlushAndYield(['default']);
+    expect(ReactNoop.flush()).toEqual(['default']);
   });
 
   describe('Promises', () => {
@@ -126,9 +124,9 @@ describe('createSubscription', () => {
 
       function render(hasLoaded) {
         if (hasLoaded === undefined) {
-          Scheduler.yieldValue('loading');
+          ReactNoop.yield('loading');
         } else {
-          Scheduler.yieldValue(hasLoaded ? 'finished' : 'failed');
+          ReactNoop.yield(hasLoaded ? 'finished' : 'failed');
         }
         return null;
       }
@@ -143,19 +141,19 @@ describe('createSubscription', () => {
 
       // Test a promise that resolves after render
       ReactNoop.render(<Subscription source={promiseA}>{render}</Subscription>);
-      expect(Scheduler).toFlushAndYield(['loading']);
+      expect(ReactNoop.flush()).toEqual(['loading']);
       resolveA(true);
       await promiseA;
-      expect(Scheduler).toFlushAndYield(['finished']);
+      expect(ReactNoop.flush()).toEqual(['finished']);
 
       // Test a promise that resolves before render
       // Note that this will require an extra render anyway,
       // Because there is no way to synchronously get a Promise's value
       rejectB(false);
       ReactNoop.render(<Subscription source={promiseB}>{render}</Subscription>);
-      expect(Scheduler).toFlushAndYield(['loading']);
+      expect(ReactNoop.flush()).toEqual(['loading']);
       await promiseB.catch(() => true);
-      expect(Scheduler).toFlushAndYield(['failed']);
+      expect(ReactNoop.flush()).toEqual(['failed']);
     });
 
     it('should still work if unsubscription is managed incorrectly', async () => {
@@ -169,7 +167,7 @@ describe('createSubscription', () => {
       });
 
       function render(value = 'default') {
-        Scheduler.yieldValue(value);
+        ReactNoop.yield(value);
         return null;
       }
 
@@ -179,9 +177,9 @@ describe('createSubscription', () => {
 
       // Subscribe first to Promise A then Promise B
       ReactNoop.render(<Subscription source={promiseA}>{render}</Subscription>);
-      expect(Scheduler).toFlushAndYield(['default']);
+      expect(ReactNoop.flush()).toEqual(['default']);
       ReactNoop.render(<Subscription source={promiseB}>{render}</Subscription>);
-      expect(Scheduler).toFlushAndYield(['default']);
+      expect(ReactNoop.flush()).toEqual(['default']);
 
       // Resolve both Promises
       resolveB(123);
@@ -189,7 +187,7 @@ describe('createSubscription', () => {
       await Promise.all([promiseA, promiseB]);
 
       // Ensure that only Promise B causes an update
-      expect(Scheduler).toFlushAndYield([123]);
+      expect(ReactNoop.flush()).toEqual([123]);
     });
 
     it('should not call setState for a Promise that resolves after unmount', async () => {
@@ -203,7 +201,7 @@ describe('createSubscription', () => {
       });
 
       function render(hasLoaded) {
-        Scheduler.yieldValue('rendered');
+        ReactNoop.yield('rendered');
         return null;
       }
 
@@ -213,11 +211,11 @@ describe('createSubscription', () => {
       });
 
       ReactNoop.render(<Subscription source={promise}>{render}</Subscription>);
-      expect(Scheduler).toFlushAndYield(['rendered']);
+      expect(ReactNoop.flush()).toEqual(['rendered']);
 
       // Unmount
       ReactNoop.render(null);
-      expect(Scheduler).toFlushWithoutYielding();
+      ReactNoop.flush();
 
       // Resolve Promise should not trigger a setState warning
       resolvePromise(true);
@@ -235,7 +233,7 @@ describe('createSubscription', () => {
     });
 
     function render(value = 'default') {
-      Scheduler.yieldValue(value);
+      ReactNoop.yield(value);
       return null;
     }
 
@@ -247,28 +245,28 @@ describe('createSubscription', () => {
     );
 
     // Updates while subscribed should re-render the child component
-    expect(Scheduler).toFlushAndYield(['a-0']);
+    expect(ReactNoop.flush()).toEqual(['a-0']);
 
     // Unsetting the subscriber prop should reset subscribed values
     ReactNoop.render(
       <Subscription source={observableB}>{render}</Subscription>,
     );
-    expect(Scheduler).toFlushAndYield(['b-0']);
+    expect(ReactNoop.flush()).toEqual(['b-0']);
 
     // Updates to the old subscribable should not re-render the child component
     observableA.next('a-1');
-    expect(Scheduler).toFlushAndYield([]);
+    expect(ReactNoop.flush()).toEqual([]);
 
     // Updates to the bew subscribable should re-render the child component
     observableB.next('b-1');
-    expect(Scheduler).toFlushAndYield(['b-1']);
+    expect(ReactNoop.flush()).toEqual(['b-1']);
   });
 
   it('should ignore values emitted by a new subscribable until the commit phase', () => {
     const log = [];
 
     function Child({value}) {
-      Scheduler.yieldValue('Child: ' + value);
+      ReactNoop.yield('Child: ' + value);
       return null;
     }
 
@@ -305,7 +303,7 @@ describe('createSubscription', () => {
         return (
           <Subscription source={this.state.observed}>
             {(value = 'default') => {
-              Scheduler.yieldValue('Subscriber: ' + value);
+              ReactNoop.yield('Subscriber: ' + value);
               return <Child value={value} />;
             }}
           </Subscription>
@@ -317,12 +315,12 @@ describe('createSubscription', () => {
     const observableB = createBehaviorSubject('b-0');
 
     ReactNoop.render(<Parent observed={observableA} />);
-    expect(Scheduler).toFlushAndYield(['Subscriber: a-0', 'Child: a-0']);
+    expect(ReactNoop.flush()).toEqual(['Subscriber: a-0', 'Child: a-0']);
     expect(log).toEqual(['Parent.componentDidMount']);
 
     // Start React update, but don't finish
     ReactNoop.render(<Parent observed={observableB} />);
-    expect(Scheduler).toFlushAndYieldThrough(['Subscriber: b-0']);
+    ReactNoop.flushThrough(['Subscriber: b-0']);
     expect(log).toEqual(['Parent.componentDidMount']);
 
     // Emit some updates from the uncommitted subscribable
@@ -337,7 +335,7 @@ describe('createSubscription', () => {
     // We expect the last emitted update to be rendered (because of the commit phase value check)
     // But the intermediate ones should be ignored,
     // And the final rendered output should be the higher-priority observable.
-    expect(Scheduler).toFlushAndYield([
+    expect(ReactNoop.flush()).toEqual([
       'Child: b-0',
       'Subscriber: b-3',
       'Child: b-3',
@@ -355,7 +353,7 @@ describe('createSubscription', () => {
     const log = [];
 
     function Child({value}) {
-      Scheduler.yieldValue('Child: ' + value);
+      ReactNoop.yield('Child: ' + value);
       return null;
     }
 
@@ -392,7 +390,7 @@ describe('createSubscription', () => {
         return (
           <Subscription source={this.state.observed}>
             {(value = 'default') => {
-              Scheduler.yieldValue('Subscriber: ' + value);
+              ReactNoop.yield('Subscriber: ' + value);
               return <Child value={value} />;
             }}
           </Subscription>
@@ -404,12 +402,12 @@ describe('createSubscription', () => {
     const observableB = createBehaviorSubject('b-0');
 
     ReactNoop.render(<Parent observed={observableA} />);
-    expect(Scheduler).toFlushAndYield(['Subscriber: a-0', 'Child: a-0']);
+    expect(ReactNoop.flush()).toEqual(['Subscriber: a-0', 'Child: a-0']);
     expect(log).toEqual(['Parent.componentDidMount']);
 
     // Start React update, but don't finish
     ReactNoop.render(<Parent observed={observableB} />);
-    expect(Scheduler).toFlushAndYieldThrough(['Subscriber: b-0']);
+    ReactNoop.flushThrough(['Subscriber: b-0']);
     expect(log).toEqual(['Parent.componentDidMount']);
 
     // Emit some updates from the old subscribable
@@ -422,7 +420,7 @@ describe('createSubscription', () => {
     // Flush everything and ensure that the correct subscribable is used
     // We expect the new subscribable to finish rendering,
     // But then the updated values from the old subscribable should be used.
-    expect(Scheduler).toFlushAndYield([
+    expect(ReactNoop.flush()).toEqual([
       'Child: b-0',
       'Subscriber: a-2',
       'Child: a-2',
@@ -435,7 +433,7 @@ describe('createSubscription', () => {
 
     // Updates from the new subscribable should be ignored.
     observableB.next('b-1');
-    expect(Scheduler).toFlushAndYield([]);
+    expect(ReactNoop.flush()).toEqual([]);
     expect(log).toEqual([
       'Parent.componentDidMount',
       'Parent.componentDidUpdate',
@@ -481,7 +479,7 @@ describe('createSubscription', () => {
         <Subscription source={observable}>{value => null}</Subscription>,
       );
 
-      expect(Scheduler).toFlushAndThrow(
+      expect(ReactNoop.flush).toThrow(
         'A subscription must return an unsubscribe function.',
       );
     });

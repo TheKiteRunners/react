@@ -7,6 +7,7 @@
 
 import ReactVersion from 'shared/ReactVersion';
 import {
+  REACT_CONCURRENT_MODE_TYPE,
   REACT_FRAGMENT_TYPE,
   REACT_PROFILER_TYPE,
   REACT_STRICT_MODE_TYPE,
@@ -14,7 +15,6 @@ import {
 } from 'shared/ReactSymbols';
 
 import {Component, PureComponent} from './ReactBaseClasses';
-import {createEventComponent} from './ReactCreateEventComponent';
 import {createRef} from './ReactCreateRef';
 import {forEach, map, count, toArray, only} from './ReactChildren';
 import {
@@ -22,7 +22,6 @@ import {
   createFactory,
   cloneElement,
   isValidElement,
-  jsx,
 } from './ReactElement';
 import {createContext} from './ReactContext';
 import {lazy} from './ReactLazy';
@@ -40,18 +39,14 @@ import {
   useRef,
   useState,
 } from './ReactHooks';
-import {withSuspenseConfig} from './ReactBatchConfig';
 import {
   createElementWithValidation,
   createFactoryWithValidation,
   cloneElementWithValidation,
-  jsxWithValidation,
-  jsxWithValidationStatic,
-  jsxWithValidationDynamic,
 } from './ReactElementValidator';
 import ReactSharedInternals from './ReactSharedInternals';
-import {error, warn} from './withComponentStack';
-import {enableEventAPI, enableJSXTransformAPI} from 'shared/ReactFeatureFlags';
+import {enableStableConcurrentModeAPIs} from 'shared/ReactFeatureFlags';
+
 const React = {
   Children: {
     map,
@@ -70,9 +65,6 @@ const React = {
   lazy,
   memo,
 
-  error,
-  warn,
-
   useCallback,
   useContext,
   useEffect,
@@ -85,7 +77,6 @@ const React = {
   useState,
 
   Fragment: REACT_FRAGMENT_TYPE,
-  Profiler: REACT_PROFILER_TYPE,
   StrictMode: REACT_STRICT_MODE_TYPE,
   Suspense: REACT_SUSPENSE_TYPE,
 
@@ -96,7 +87,8 @@ const React = {
 
   version: ReactVersion,
 
-  unstable_withSuspenseConfig: withSuspenseConfig,
+  unstable_ConcurrentMode: REACT_CONCURRENT_MODE_TYPE,
+  unstable_Profiler: REACT_PROFILER_TYPE,
 
   __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED: ReactSharedInternals,
 };
@@ -106,21 +98,11 @@ const React = {
 // don't modify the React object to avoid deopts.
 // Also let's not expose their names in stable builds.
 
-if (enableEventAPI) {
-  React.unstable_createEventComponent = createEventComponent;
-}
-
-if (enableJSXTransformAPI) {
-  if (__DEV__) {
-    React.jsxDEV = jsxWithValidation;
-    React.jsx = jsxWithValidationDynamic;
-    React.jsxs = jsxWithValidationStatic;
-  } else {
-    React.jsx = jsx;
-    // we may want to special case jsxs internally to take advantage of static children.
-    // for now we can ship identical prod functions
-    React.jsxs = jsx;
-  }
+if (enableStableConcurrentModeAPIs) {
+  React.ConcurrentMode = REACT_CONCURRENT_MODE_TYPE;
+  React.Profiler = REACT_PROFILER_TYPE;
+  React.unstable_ConcurrentMode = undefined;
+  React.unstable_Profiler = undefined;
 }
 
 export default React;

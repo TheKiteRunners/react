@@ -12,7 +12,6 @@
 
 let React;
 let ReactNoopPersistent;
-let Scheduler;
 
 describe('ReactPersistent', () => {
   beforeEach(() => {
@@ -20,7 +19,6 @@ describe('ReactPersistent', () => {
 
     React = require('react');
     ReactNoopPersistent = require('react-noop-renderer/persistent');
-    Scheduler = require('scheduler');
   });
 
   // Inlined from shared folder so we can run this test on a bundle.
@@ -68,12 +66,12 @@ describe('ReactPersistent', () => {
     }
 
     render(<Foo text="Hello" />);
-    expect(Scheduler).toFlushWithoutYielding();
+    ReactNoopPersistent.flush();
     const originalChildren = getChildren();
     expect(originalChildren).toEqual([div(span())]);
 
     render(<Foo text="World" />);
-    expect(Scheduler).toFlushWithoutYielding();
+    ReactNoopPersistent.flush();
     const newChildren = getChildren();
     expect(newChildren).toEqual([div(span(), span())]);
 
@@ -102,12 +100,12 @@ describe('ReactPersistent', () => {
     }
 
     render(<Foo text="Hello" />);
-    expect(Scheduler).toFlushWithoutYielding();
+    ReactNoopPersistent.flush();
     const originalChildren = getChildren();
     expect(originalChildren).toEqual([div(span('Hello'))]);
 
     render(<Foo text="World" />);
-    expect(Scheduler).toFlushWithoutYielding();
+    ReactNoopPersistent.flush();
     const newChildren = getChildren();
     expect(newChildren).toEqual([div(span('Hello'), span('World'))]);
 
@@ -128,12 +126,12 @@ describe('ReactPersistent', () => {
     }
 
     render(<Foo text="Hello" />);
-    expect(Scheduler).toFlushWithoutYielding();
+    ReactNoopPersistent.flush();
     const originalChildren = getChildren();
     expect(originalChildren).toEqual([div('Hello', span())]);
 
     render(<Foo text="World" />);
-    expect(Scheduler).toFlushWithoutYielding();
+    ReactNoopPersistent.flush();
     const newChildren = getChildren();
     expect(newChildren).toEqual([div('World', span())]);
 
@@ -169,7 +167,7 @@ describe('ReactPersistent', () => {
     const portalContainer = {rootID: 'persistent-portal-test', children: []};
     const emptyPortalChildSet = portalContainer.children;
     render(<Parent>{createPortal(<Child />, portalContainer, null)}</Parent>);
-    expect(Scheduler).toFlushWithoutYielding();
+    ReactNoopPersistent.flush();
 
     expect(emptyPortalChildSet).toEqual([]);
 
@@ -183,7 +181,7 @@ describe('ReactPersistent', () => {
         {createPortal(<Child>Hello {'World'}</Child>, portalContainer, null)}
       </Parent>,
     );
-    expect(Scheduler).toFlushWithoutYielding();
+    ReactNoopPersistent.flush();
 
     const newChildren = getChildren();
     expect(newChildren).toEqual([div()]);
@@ -200,7 +198,7 @@ describe('ReactPersistent', () => {
 
     // Deleting the Portal, should clear its children
     render(<Parent />);
-    expect(Scheduler).toFlushWithoutYielding();
+    ReactNoopPersistent.flush();
 
     const clearedPortalChildren = portalContainer.children;
     expect(clearedPortalChildren).toEqual([]);
