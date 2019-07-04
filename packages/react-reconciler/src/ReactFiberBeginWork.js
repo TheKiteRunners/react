@@ -150,15 +150,17 @@ if (__DEV__) {
 
 export function reconcileChildren(
   current: Fiber | null,
-  workInProgress: Fiber,
-  nextChildren: any,
-  renderExpirationTime: ExpirationTime,
+  workInProgress: Fiber, // 镜像Fiber
+  nextChildren: any, // "hello"
+  renderExpirationTime: ExpirationTime, // sync
 ) {
   if (current === null) {
     // If this is a fresh new component that hasn't been rendered yet, we
     // won't update its child set by applying minimal side-effects. Instead,
     // we will add them all to the child before it gets rendered. That means
     // we can optimize this reconciliation pass by not tracking side-effects.
+
+    // 如果这是一个尚未渲染的新组件，我们会在渲染之前将它们全部添加到子项中
     workInProgress.child = mountChildFibers(
       workInProgress,
       null,
@@ -169,6 +171,7 @@ export function reconcileChildren(
     // If the current child is the same as the work in progress, it means that
     // we haven't yet started any work on these children. Therefore, we use
     // the clone algorithm to create a copy of all the current children.
+    // 如果当前孩子与正在进行的工作相同，则意味着我们尚未开始对这些孩子进行任何工作。 因此，我们使用克隆算法来创建所有当前子项的副本。
 
     // If we had any progressed work already, that is invalid at this point so
     // let's throw it out.
@@ -835,7 +838,11 @@ function pushHostRootContext(workInProgress) {
   pushHostContainer(workInProgress, root.containerInfo);
 }
 
-function updateHostRoot(current, workInProgress, renderExpirationTime) {
+function updateHostRoot(
+  current, // FiberNode
+  workInProgress, // 镜像FiberNode
+  renderExpirationTime, // Sync
+) {
   pushHostRootContext(workInProgress);
   const updateQueue = workInProgress.updateQueue;
   invariant(
@@ -854,11 +861,11 @@ function updateHostRoot(current, workInProgress, renderExpirationTime) {
     null,
     renderExpirationTime,
   );
-  const nextState = workInProgress.memoizedState;
+  const nextState = workInProgress.memoizedState; // 值为{ element: "hello" }
   // Caution: React DevTools currently depends on this property
   // being called "element".
-  const nextChildren = nextState.element;
-  if (nextChildren === prevChildren) {
+  const nextChildren = nextState.element; // 'hello'
+  if (nextChildren === prevChildren) { // prevChildren = null
     // If the state is the same as before, that's a bailout because we had
     // no work that expires at this time.
     resetHydrationState();
@@ -868,7 +875,7 @@ function updateHostRoot(current, workInProgress, renderExpirationTime) {
       renderExpirationTime,
     );
   }
-  const root: FiberRoot = workInProgress.stateNode;
+  const root: FiberRoot = workInProgress.stateNode; // 指回FiberRoot
   if (
     (current === null || current.child === null) &&
     root.hydrate &&
@@ -1891,9 +1898,9 @@ function bailoutOnAlreadyFinishedWork(
 }
 
 function beginWork(
-  current: Fiber | null,
-  workInProgress: Fiber,
-  renderExpirationTime: ExpirationTime,
+  current: Fiber | null, // FiberNode
+  workInProgress: Fiber, // 上面的镜像Fiber
+  renderExpirationTime: ExpirationTime, // Sync
 ): Fiber | null {
   const updateExpirationTime = workInProgress.expirationTime;
 
@@ -1904,6 +1911,7 @@ function beginWork(
     if (oldProps !== newProps || hasLegacyContextChanged()) {
       // If props or context changed, mark the fiber as having performed work.
       // This may be unset if the props are determined to be equal later (memo).
+      // 如果道具或上下文发生变化，将光纤标记为已完成工作。
       didReceiveUpdate = true;
     } else if (updateExpirationTime < renderExpirationTime) {
       didReceiveUpdate = false;
@@ -2003,6 +2011,7 @@ function beginWork(
   }
 
   // Before entering the begin phase, clear the expiration time.
+  // 在进入开始阶段之前, 清除过期时间
   workInProgress.expirationTime = NoWork;
 
   switch (workInProgress.tag) {

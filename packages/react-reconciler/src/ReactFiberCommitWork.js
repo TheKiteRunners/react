@@ -921,6 +921,7 @@ function commitPlacement(finishedWork: Fiber): void {
   }
 
   // Recursively insert all host nodes into the parent.
+  // 返回当前Text Fiber Node的return属性, 也就是镜像fiber node
   const parentFiber = getHostParentFiber(finishedWork);
 
   // Note: these two variables *must* always be updated together.
@@ -933,7 +934,7 @@ function commitPlacement(finishedWork: Fiber): void {
       isContainer = false;
       break;
     case HostRoot:
-      parent = parentFiber.stateNode.containerInfo;
+      parent = parentFiber.stateNode.containerInfo; // 真实DOM节点
       isContainer = true;
       break;
     case HostPortal:

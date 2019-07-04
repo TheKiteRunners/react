@@ -349,23 +349,26 @@ export function resolveLazyComponentTag(Component: Function): WorkTag {
 
 // This is used to create an alternate fiber to do work on.
 export function createWorkInProgress(
-  current: Fiber,
-  pendingProps: any,
-  expirationTime: ExpirationTime,
+  current: Fiber, // FiberNode
+  pendingProps: any, // null
+  expirationTime: ExpirationTime, // Sync
 ): Fiber {
-  let workInProgress = current.alternate;
+  let workInProgress = current.alternate; // 这时候还为null
   if (workInProgress === null) {
     // We use a double buffering pooling technique because we know that we'll
     // only ever need at most two versions of a tree. We pool the "other" unused
     // node that we're free to reuse. This is lazily created to avoid allocating
     // extra objects for things that are never updated. It also allow us to
     // reclaim the extra memory if needed.
+    // 镜像fiber
     workInProgress = createFiber(
-      current.tag,
-      pendingProps,
-      current.key,
-      current.mode,
-    );
+      current.tag, // 3
+      pendingProps, // null
+      current.key, // null
+      current.mode, // 0
+    ); // 此处调用 new FiberNode(tag, pendingProps, key, mode);返回一个FiberNode
+
+    // 此处又可以总结一下画个图了
     workInProgress.elementType = current.elementType;
     workInProgress.type = current.type;
     workInProgress.stateNode = current.stateNode;
@@ -385,6 +388,7 @@ export function createWorkInProgress(
 
     // We already have an alternate.
     // Reset the effect tag.
+    // 如果已经有镜像fiber的话就重置effect
     workInProgress.effectTag = NoEffect;
 
     // The effect list is no longer valid.
@@ -402,6 +406,7 @@ export function createWorkInProgress(
     }
   }
 
+  // 部分对象复用
   workInProgress.childExpirationTime = current.childExpirationTime;
   workInProgress.expirationTime = current.expirationTime;
 
@@ -683,8 +688,8 @@ export function createFiberFromPortal(
 
 // Used for stashing WIP properties to replay failed work in DEV.
 export function assignFiberPropertiesInDEV(
-  target: Fiber | null,
-  source: Fiber,
+  target: Fiber | null, // null
+  source: Fiber, // FiberNode
 ): Fiber {
   if (target === null) {
     // This Fiber's initial properties will always be overwritten.

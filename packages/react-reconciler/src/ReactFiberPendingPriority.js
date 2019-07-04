@@ -18,15 +18,17 @@ import {NoWork} from './ReactFiberExpirationTime';
 
 export function markPendingPriorityLevel(
   root: FiberRoot,
-  expirationTime: ExpirationTime,
+  expirationTime: ExpirationTime, // requestCurrentTime算得的时间
 ): void {
   // If there's a gap between completing a failed root and retrying it,
   // additional updates may be scheduled. Clear `didError`, in case the update
   // is sufficient to fix the error.
+  // 如果在完成失败和重试之间存在空隙，则可能会安排其他更新。 如果更新足以修复错误，设回didError为false
   root.didError = false;
 
   // Update the latest and earliest pending times
-  const earliestPendingTime = root.earliestPendingTime;
+  const earliestPendingTime = root.earliestPendingTime; // 初始时为0
+  // NoWork是常量值为0
   if (earliestPendingTime === NoWork) {
     // No other pending updates.
     root.earliestPendingTime = root.latestPendingTime = expirationTime;
@@ -247,11 +249,14 @@ export function didExpireAtExpirationTime(
   }
 }
 
-function findNextExpirationTimeToWorkOn(completedExpirationTime, root) {
-  const earliestSuspendedTime = root.earliestSuspendedTime;
-  const latestSuspendedTime = root.latestSuspendedTime;
-  const earliestPendingTime = root.earliestPendingTime;
-  const latestPingedTime = root.latestPingedTime;
+function findNextExpirationTimeToWorkOn(
+  completedExpirationTime, // requestCurrentTime算得的时间
+  root, // FiberRoot
+) {
+  const earliestSuspendedTime = root.earliestSuspendedTime; // 0
+  const latestSuspendedTime = root.latestSuspendedTime; // 0
+  const earliestPendingTime = root.earliestPendingTime; // completedExpirationTime
+  const latestPingedTime = root.latestPingedTime; // completedExpirationTime
 
   // Work on the earliest pending time. Failing that, work on the latest
   // pinged time.
@@ -274,9 +279,10 @@ function findNextExpirationTimeToWorkOn(completedExpirationTime, root) {
   let expirationTime = nextExpirationTimeToWorkOn;
   if (expirationTime !== NoWork && earliestSuspendedTime > expirationTime) {
     // Expire using the earliest known expiration time.
+    // 使用最早的已知过期时间
     expirationTime = earliestSuspendedTime;
   }
 
-  root.nextExpirationTimeToWorkOn = nextExpirationTimeToWorkOn;
+  root.nextExpirationTimeToWorkOn = nextExpirationTimeToWorkOn; // expirationTime
   root.expirationTime = expirationTime;
 }

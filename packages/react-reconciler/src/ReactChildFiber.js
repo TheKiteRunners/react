@@ -1079,13 +1079,14 @@ function ChildReconciler(shouldTrackSideEffects) {
   }
 
   function reconcileSingleTextNode(
-    returnFiber: Fiber,
-    currentFirstChild: Fiber | null,
-    textContent: string,
-    expirationTime: ExpirationTime,
+    returnFiber: Fiber, // 镜像Fiber
+    currentFirstChild: Fiber | null, // null
+    textContent: string, // 'hello'
+    expirationTime: ExpirationTime, // Sync
   ): Fiber {
     // There's no need to check for keys on text nodes since we don't have a
     // way to define them.
+    // 我们不需要去检查文本上的节点
     if (currentFirstChild !== null && currentFirstChild.tag === HostText) {
       // We already have an existing node so let's just update it and delete
       // the rest.
@@ -1096,12 +1097,13 @@ function ChildReconciler(shouldTrackSideEffects) {
     }
     // The existing first child is not a text node so we need to create one
     // and delete the existing ones.
+    // currentFirstChild为null其实下面这个函数什么都没做
     deleteRemainingChildren(returnFiber, currentFirstChild);
     const created = createFiberFromText(
-      textContent,
+      textContent, // hello
       returnFiber.mode,
       expirationTime,
-    );
+    ); // 创建一个tag为6, mode为0的FiberNode
     created.return = returnFiber;
     return created;
   }
@@ -1217,18 +1219,18 @@ function ChildReconciler(shouldTrackSideEffects) {
   // itself. They will be added to the side-effect list as we pass through the
   // children and the parent.
   function reconcileChildFibers(
-    returnFiber: Fiber,
-    currentFirstChild: Fiber | null,
-    newChild: any,
-    expirationTime: ExpirationTime,
+    returnFiber: Fiber, // 镜像Fiber
+    currentFirstChild: Fiber | null, // null
+    newChild: any, // "hello"
+    expirationTime: ExpirationTime, // Sync
   ): Fiber | null {
-    // This function is not recursive.
+    // This function is not recursive(递归的).
     // If the top level item is an array, we treat it as a set of children,
     // not as a fragment. Nested arrays on the other hand will be treated as
     // fragment nodes. Recursion happens at the normal flow.
 
     // Handle top level unkeyed fragments as if they were arrays.
-    // This leads to an ambiguity between <>{[...]}</> and <>...</>.
+    // This leads to an ambiguity(歧义) between <>{[...]}</> and <>...</>.
     // We treat the ambiguous cases above the same.
     const isUnkeyedTopLevelFragment =
       typeof newChild === 'object' &&
@@ -1241,7 +1243,7 @@ function ChildReconciler(shouldTrackSideEffects) {
 
     // Handle object types
     const isObject = typeof newChild === 'object' && newChild !== null;
-
+    // 根据React类型调用不同函数, 我这边为了看起来简单就是个字符串
     if (isObject) {
       switch (newChild.$$typeof) {
         case REACT_ELEMENT_TYPE:

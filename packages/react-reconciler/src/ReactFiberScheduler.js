@@ -374,6 +374,7 @@ if (__DEV__ && replayFailedUnitOfWorkWithInvokeGuardedCallback) {
 }
 
 function resetStack() {
+  // nextUnitOfWork为变量初始值为null
   if (nextUnitOfWork !== null) {
     let interruptedWork = nextUnitOfWork.return;
     while (interruptedWork !== null) {
@@ -404,6 +405,7 @@ function commitAllHostEffects() {
     const effectTag = nextEffect.effectTag;
 
     if (effectTag & ContentReset) {
+      // 重置节点文字内容
       commitResetTextContent(nextEffect);
     }
 
@@ -418,6 +420,7 @@ function commitAllHostEffects() {
     // updates, and deletions. To avoid needing to add a case for every
     // possible bitmap value, we remove the secondary effects from the
     // effect tag and switch on that value.
+    //以下switch语句仅关注placement, updates, and deletions 
     let primaryEffectTag = effectTag & (Placement | Update | Deletion);
     switch (primaryEffectTag) {
       case Placement: {
@@ -427,7 +430,11 @@ function commitAllHostEffects() {
         // TODO: findDOMNode doesn't rely on this any more but isMounted
         // does and isMounted is deprecated anyway so we should be able
         // to kill this.
-        nextEffect.effectTag &= ~Placement;
+
+        // nextEffect.effectTag目前为2
+        // Placement常量值为0b000000000010
+        // 具体位运算可以参考https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Operators/Bitwise_Operators
+        nextEffect.effectTag &= ~Placement; // nextEffect.effectTag = 0
         break;
       }
       case PlacementAndUpdate: {
@@ -461,19 +468,21 @@ function commitAllHostEffects() {
 }
 
 function commitBeforeMutationLifecycles() {
+  // nextEffect为Text Fiber Node
   while (nextEffect !== null) {
     if (__DEV__) {
       setCurrentFiber(nextEffect);
     }
 
-    const effectTag = nextEffect.effectTag;
-    if (effectTag & Snapshot) {
+    const effectTag = nextEffect.effectTag; // 2
+    // Snapshot是常量值为0b000100000000
+    if (effectTag & Snapshot) { // 此时执行不到
       recordEffect();
       const current = nextEffect.alternate;
       commitBeforeMutationLifeCycles(current, nextEffect);
     }
 
-    nextEffect = nextEffect.nextEffect;
+    nextEffect = nextEffect.nextEffect; // 镜像Fiber Node, 之后再来一遍循环
   }
 
   if (__DEV__) {
@@ -607,7 +616,10 @@ function flushPassiveEffects() {
   }
 }
 
-function commitRoot(root: FiberRoot, finishedWork: Fiber): void {
+function commitRoot(
+  root: FiberRoot,
+  finishedWork: Fiber, // Root的镜像Fiber Node
+): void {
   isWorking = true;
   isCommitting = true;
   startCommitTimer();
@@ -618,6 +630,8 @@ function commitRoot(root: FiberRoot, finishedWork: Fiber): void {
       'related to the return field. This error is likely caused by a bug ' +
       'in React. Please file an issue.',
   );
+
+  // pendingCommitExpirationTime该值在renderRoot函数最后设置了
   const committedExpirationTime = root.pendingCommitExpirationTime;
   invariant(
     committedExpirationTime !== NoWork,
@@ -629,12 +643,15 @@ function commitRoot(root: FiberRoot, finishedWork: Fiber): void {
   // Update the pending priority levels to account for the work that we are
   // about to commit. This needs to happen before calling the lifecycles, since
   // they may schedule additional updates.
-  const updateExpirationTimeBeforeCommit = finishedWork.expirationTime;
-  const childExpirationTimeBeforeCommit = finishedWork.childExpirationTime;
+  // 更新待处理的优先级
+  const updateExpirationTimeBeforeCommit = finishedWork.expirationTime; // 0
+  const childExpirationTimeBeforeCommit = finishedWork.childExpirationTime; // 0
   const earliestRemainingTimeBeforeCommit =
     childExpirationTimeBeforeCommit > updateExpirationTimeBeforeCommit
       ? childExpirationTimeBeforeCommit
-      : updateExpirationTimeBeforeCommit;
+      : updateExpirationTimeBeforeCommit; // 0
+
+  // 由于是首次渲染, 重置了Fiber Root内部的一些参数, 并学
   markCommittedPriorityLevels(root, earliestRemainingTimeBeforeCommit);
 
   let prevInteractions: Set<Interaction> = (null: any);
@@ -655,8 +672,8 @@ function commitRoot(root: FiberRoot, finishedWork: Fiber): void {
     // resulting list is the set that would belong to the root's parent, if
     // it had one; that is, all the effects in the tree including the root.
     if (finishedWork.lastEffect !== null) {
-      finishedWork.lastEffect.nextEffect = finishedWork;
-      firstEffect = finishedWork.firstEffect;
+      finishedWork.lastEffect.nextEffect = finishedWork; // 
+      firstEffect = finishedWork.firstEffect; // Text Fiber Node
     } else {
       firstEffect = finishedWork;
     }
@@ -665,10 +682,16 @@ function commitRoot(root: FiberRoot, finishedWork: Fiber): void {
     firstEffect = finishedWork.firstEffect;
   }
 
+  // prepareForCommit函数主要是做了下面这些事情
+  // eventsEnabled = true
+  // selectionInformation = {
+  //   focusedElem: 真实DOM元素 body,
+  //   selectionRange: null
+  // };
   prepareForCommit(root.containerInfo);
 
   // Invoke instances of getSnapshotBeforeUpdate before mutation.
-  nextEffect = firstEffect;
+  nextEffect = firstEffect; // Text Fiber Node
   startCommitSnapshotEffectsTimer();
   while (nextEffect !== null) {
     let didError = false;
@@ -700,8 +723,9 @@ function commitRoot(root: FiberRoot, finishedWork: Fiber): void {
       }
     }
   }
-  stopCommitSnapshotEffectsTimer();
 
+  // 只在dev触发
+  stopCommitSnapshotEffectsTimer();
   if (enableProfilerTimer) {
     // Mark the current commit time to be shared by all Profilers in this batch.
     // This enables them to be grouped later.
@@ -711,8 +735,9 @@ function commitRoot(root: FiberRoot, finishedWork: Fiber): void {
   // Commit all the side-effects within a tree. We'll do this in two passes.
   // The first pass performs all the host insertions, updates, deletions and
   // ref unmounts.
-  nextEffect = firstEffect;
-  startCommitHostEffectsTimer();
+  // 在树中提交所有side-effects, 将分两次, 第一遍执行所有插入，更新，删除和ref卸载。
+  nextEffect = firstEffect; // Text Fiber Node
+  startCommitHostEffectsTimer(); // 记录时间用的, 只在dev触发
   while (nextEffect !== null) {
     let didError = false;
     let error;
@@ -757,6 +782,7 @@ function commitRoot(root: FiberRoot, finishedWork: Fiber): void {
   // Life-cycles happen as a separate pass so that all placements, updates,
   // and deletions in the entire tree have already been invoked.
   // This pass also triggers any renderer-specific initial effects.
+  // In the second pass，我们将执行所有生命周期和ref回调
   nextEffect = firstEffect;
   startCommitLifeCyclesTimer();
   while (nextEffect !== null) {
@@ -962,19 +988,25 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
   // Attempt to complete the current unit of work, then move to the
   // next sibling. If there are no more siblings, return to the
   // parent fiber.
+  // 尝试完成当前的工作单元，然后转到下一个兄弟。 如果没有兄弟，返回parent fiber。
   while (true) {
     // The current, flushed, state of this fiber is the alternate.
     // Ideally nothing should rely on this, but relying on it here
     // means that we don't need an additional field on the work in
     // progress.
-    const current = workInProgress.alternate;
+    // 理想情况下，没有什么可以依赖于current，但在此依赖它意味着我们在正在进行的工作中不需要额外的字段
+
+    // 注意此时触发这个函数的Fiber是Text FiberNode, 它没有alternate
+    const current = workInProgress.alternate; // null
     if (__DEV__) {
       setCurrentFiber(workInProgress);
     }
 
-    const returnFiber = workInProgress.return;
-    const siblingFiber = workInProgress.sibling;
+    const returnFiber = workInProgress.return; // parent Fiber, 参考上一小节总结的那个图
+    const siblingFiber = workInProgress.sibling; // null
 
+    // Incomplete是常量值为0b010000000000
+    // NoEffect是常量值为0b000000000000
     if ((workInProgress.effectTag & Incomplete) === NoEffect) {
       if (__DEV__ && replayFailedUnitOfWorkWithInvokeGuardedCallback) {
         // Don't replay if it fails during completion phase.
@@ -1008,6 +1040,7 @@ function completeUnitOfWork(workInProgress: Fiber): Fiber | null {
         mayReplayFailedUnitOfWork = true;
       }
       stopWorkTimer(workInProgress);
+      // 更新当前Fiber的childExpirationTime
       resetChildExpirationTime(workInProgress, nextRenderExpirationTime);
       if (__DEV__) {
         resetCurrentFiber();
@@ -1149,11 +1182,15 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
   // Ideally nothing should rely on this, but relying on it here
   // means that we don't need an additional field on the work in
   // progress.
+  // 这时候不需要继续使用镜像Fiber了, 指回来
+  // 理想情况下，没有什么可以依赖于此，但在此依赖它意味着我们在正在进行的工作中不需要额外的字段。
   const current = workInProgress.alternate;
 
   // See if beginning this work spawns more work.
+  // 以下两个函数均只在_dev_环境下触发
   startWorkTimer(workInProgress);
   if (__DEV__) {
+    // 设置当前FiberNode到current变量上
     setCurrentFiber(workInProgress);
   }
 
@@ -1198,6 +1235,7 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
 
   if (next === null) {
     // If this doesn't spawn new work, complete the current work.
+    // 如果这不产生新的工作, 就完成当前的工作
     next = completeUnitOfWork(workInProgress);
   }
 
@@ -1206,9 +1244,13 @@ function performUnitOfWork(workInProgress: Fiber): Fiber | null {
   return next;
 }
 
-function workLoop(isYieldy) {
+function workLoop(
+  isYieldy, // false
+) {
   if (!isYieldy) {
     // Flush work without yielding
+
+    // nextUnitOfWork为FiberNode
     while (nextUnitOfWork !== null) {
       nextUnitOfWork = performUnitOfWork(nextUnitOfWork);
     }
@@ -1220,23 +1262,27 @@ function workLoop(isYieldy) {
   }
 }
 
-function renderRoot(root: FiberRoot, isYieldy: boolean): void {
+function renderRoot(
+  root: FiberRoot,
+  isYieldy: boolean, // false
+): void {
   invariant(
     !isWorking,
     'renderRoot was called recursively. This error is likely caused ' +
-      'by a bug in React. Please file an issue.',
+    'by a bug in React. Please file an issue.',
   );
 
   flushPassiveEffects();
 
-  isWorking = true;
-  const previousDispatcher = ReactCurrentDispatcher.current;
+  isWorking = true; // 用来标志当前是否有工作正在执行
+  const previousDispatcher = ReactCurrentDispatcher.current; // null
   ReactCurrentDispatcher.current = ContextOnlyDispatcher;
 
-  const expirationTime = root.nextExpirationTimeToWorkOn;
+  const expirationTime = root.nextExpirationTimeToWorkOn; // 1.4.2.1 findNextExpirationTimeToWorkOn的这个函数设置的Sync
 
   // Check if we're starting from a fresh stack, or if we're resuming from
   // previously yielded work.
+  // nextRenderExpirationTime为变量值为0
   if (
     expirationTime !== nextRenderExpirationTime ||
     root !== nextRoot ||
@@ -1244,15 +1290,25 @@ function renderRoot(root: FiberRoot, isYieldy: boolean): void {
   ) {
     // Reset the stack and start working from the root.
     resetStack();
+    // resetStack只要把以下变量重置了:
+    /**
+      nextRoot = null;
+      nextRenderExpirationTime = NoWork;
+      nextLatestAbsoluteTimeoutMs = -1;
+      nextRenderDidError = false;
+      nextUnitOfWork = null;
+    */
     nextRoot = root;
     nextRenderExpirationTime = expirationTime;
     nextUnitOfWork = createWorkInProgress(
-      nextRoot.current,
+      nextRoot.current, // FiberNode
       null,
-      nextRenderExpirationTime,
-    );
-    root.pendingCommitExpirationTime = NoWork;
+      nextRenderExpirationTime, // Sync
+    ); // 创建镜像fiber, 返回FiberNode
+    root.pendingCommitExpirationTime = NoWork; // 0
 
+    // 跟踪每个交互触发的每个commit.
+    // 这一期不看, 没有任何交互就是React.render('', dom)
     if (enableSchedulerTracing) {
       // Determine which interactions this batch of work currently includes,
       // So that we can accurately attribute time spent working on it,
@@ -1307,6 +1363,7 @@ function renderRoot(root: FiberRoot, isYieldy: boolean): void {
 
   let didFatal = false;
 
+  // 此函数只在dev环境执行, 使用performance.mark搞个时间戳
   startWorkLoopTimer(nextUnitOfWork);
 
   do {
@@ -1751,30 +1808,36 @@ function retryTimedOutBoundary(boundaryFiber: Fiber, thenable: Thenable) {
   }
 }
 
-function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
-  recordScheduleUpdate();
+function scheduleWorkToRoot(
+  fiber: Fiber, // FiberNode
+  expirationTime, // requestCurrentTime算得的时间
+): FiberRoot | null {
+  recordScheduleUpdate(); // 只有dev环境运行
 
   if (__DEV__) {
+    // ClassComponent是常量值为1
     if (fiber.tag === ClassComponent) {
       const instance = fiber.stateNode;
+      // 警告操作不要在getChildContext(已弃用)和render中使用setState
       warnAboutInvalidUpdates(instance);
     }
   }
 
   // Update the source fiber's expiration time
   if (fiber.expirationTime < expirationTime) {
-    fiber.expirationTime = expirationTime;
+    fiber.expirationTime = expirationTime; // 更新一下
   }
-  let alternate = fiber.alternate;
+  let alternate = fiber.alternate; // 镜像fiber, 这时候还没
   if (alternate !== null && alternate.expirationTime < expirationTime) {
     alternate.expirationTime = expirationTime;
   }
   // Walk the parent path to the root and update the child expiration time.
-  let node = fiber.return;
+  let node = fiber.return; // 指向当前fiber的父级
   let root = null;
   if (node === null && fiber.tag === HostRoot) {
-    root = fiber.stateNode;
+    root = fiber.stateNode; // FiberRoot
   } else {
+    // 当前节点所有父节点过期时间都更新一下
     while (node !== null) {
       alternate = node.alternate;
       if (node.childExpirationTime < expirationTime) {
@@ -1792,6 +1855,7 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
         alternate.childExpirationTime = expirationTime;
       }
       if (node.return === null && node.tag === HostRoot) {
+        // 到跟节点退出
         root = node.stateNode;
         break;
       }
@@ -1801,6 +1865,7 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
 
   if (enableSchedulerTracing) {
     if (root !== null) {
+      // __interactionsRef里面就一个current, 其数据类型为SET
       const interactions = __interactionsRef.current;
       if (interactions.size > 0) {
         const pendingInteractionMap = root.pendingInteractionMap;
@@ -1862,7 +1927,7 @@ function scheduleWork(
   fiber: Fiber, // FiberNode
   expirationTime: ExpirationTime, // requestCurrentTime算得的时间
 ) {
-  const root = scheduleWorkToRoot(fiber, expirationTime);
+  const root = scheduleWorkToRoot(fiber, expirationTime); // 返回的是FiberRoot
   if (root === null) {
     if (__DEV__) {
       switch (fiber.tag) {
@@ -1880,12 +1945,16 @@ function scheduleWork(
     return;
   }
 
+  // isWorking是变量, 初始值为false
+  // NoWork是常量值为0
+  // nextRenderExpirationTime是变量, 初始值为NoWork
   if (
     !isWorking &&
     nextRenderExpirationTime !== NoWork &&
     expirationTime > nextRenderExpirationTime
-  ) {
+  ) { // 初次不会到这次循环内
     // This is an interruption. (Used for performance tracking.)
+    // 这是一次中断, 用于性能追踪
     interruptedBy = fiber;
     resetStack();
   }
@@ -1898,6 +1967,7 @@ function scheduleWork(
     // ...unless this is a different root than the one we're rendering.
     nextRoot !== root
   ) {
+    // 进到这里了
     const rootExpirationTime = root.expirationTime;
     requestWork(root, rootExpirationTime);
   }
@@ -2005,7 +2075,7 @@ function onFatal(root) {
 
 function onComplete(
   root: FiberRoot,
-  finishedWork: Fiber,
+  finishedWork: Fiber, // Root的镜像Fiber Node
   expirationTime: ExpirationTime,
 ) {
   root.pendingCommitExpirationTime = expirationTime;
@@ -2108,6 +2178,7 @@ function requestCurrentTime() {
 
 // requestWork is called by the scheduler whenever a root receives an update.
 // It's up to the renderer to call renderRoot at some point in the future.
+// 只要root收到更新，调度程序就会调用requestWork。由渲染器决定在将来的某个时刻调用renderRoot。
 function requestWork(root: FiberRoot, expirationTime: ExpirationTime) {
   addRootToSchedule(root, expirationTime);
   if (isRendering) {
@@ -2116,7 +2187,7 @@ function requestWork(root: FiberRoot, expirationTime: ExpirationTime) {
     return;
   }
 
-  if (isBatchingUpdates) {
+  if (isBatchingUpdates) { // 初值为false, 不会进到这个判断里
     // Flush work at the end of the batch.
     if (isUnbatchingUpdates) {
       // ...unless we're inside unbatchedUpdates, in which case we should
@@ -2130,9 +2201,9 @@ function requestWork(root: FiberRoot, expirationTime: ExpirationTime) {
 
   // TODO: Get rid of Sync and use current time?
   if (expirationTime === Sync) {
-    performSyncWork();
+    performSyncWork(); // 这里
   } else {
-    scheduleCallbackWithExpirationTime(root, expirationTime);
+    scheduleCallbackWithExpirationTime(root, expirationTime); // 这个函数之后系列再看
   }
 }
 
@@ -2144,14 +2215,16 @@ function addRootToSchedule(root: FiberRoot, expirationTime: ExpirationTime) {
     root.expirationTime = expirationTime;
     if (lastScheduledRoot === null) {
       firstScheduledRoot = lastScheduledRoot = root;
-      root.nextScheduledRoot = root;
+      root.nextScheduledRoot = root; // 自身循环, 就一个节点
     } else {
+      // 循环链表
       lastScheduledRoot.nextScheduledRoot = root;
       lastScheduledRoot = root;
       lastScheduledRoot.nextScheduledRoot = firstScheduledRoot;
     }
   } else {
     // This root is already scheduled, but its priority may have increased.
+    // 如果已经安排过了, 那就判断下过期时间
     const remainingExpirationTime = root.expirationTime;
     if (expirationTime > remainingExpirationTime) {
       // Update the priority.
@@ -2164,14 +2237,14 @@ function findHighestPriorityRoot() {
   let highestPriorityWork = NoWork; // 0
   let highestPriorityRoot = null;
   // lastScheduledRoot初始化为null
-  if (lastScheduledRoot !== null) {
+  if (lastScheduledRoot !== null) { // lastScheduledRoot为addRootToSchedule设置的FiberRoot
     let previousScheduledRoot = lastScheduledRoot;
-    let root = firstScheduledRoot;
+    let root = firstScheduledRoot; // 也为FiberRoot
     while (root !== null) {
       const remainingExpirationTime = root.expirationTime;
       if (remainingExpirationTime === NoWork) {
         // This root no longer has work. Remove it from the scheduler.
-
+        // 这个跟节点不再执行, 移除
         // TODO: This check is redudant, but Flow is confused by the branch
         // below where we set lastScheduledRoot to null, even though we break
         // from the loop right after.
@@ -2182,6 +2255,7 @@ function findHighestPriorityRoot() {
         );
         if (root === root.nextScheduledRoot) {
           // This is the only root in the list.
+          // 就一个跟节点, 清空
           root.nextScheduledRoot = null;
           firstScheduledRoot = lastScheduledRoot = null;
           break;
@@ -2190,26 +2264,26 @@ function findHighestPriorityRoot() {
           const next = root.nextScheduledRoot;
           firstScheduledRoot = next;
           lastScheduledRoot.nextScheduledRoot = next;
-          root.nextScheduledRoot = null;
+          root.nextScheduledRoot = null; // 将第一个节点拿出来
         } else if (root === lastScheduledRoot) {
           // This is the last root in the list.
           lastScheduledRoot = previousScheduledRoot;
           lastScheduledRoot.nextScheduledRoot = firstScheduledRoot;
-          root.nextScheduledRoot = null;
+          root.nextScheduledRoot = null; // 最后一个节点拿出来
           break;
         } else {
           previousScheduledRoot.nextScheduledRoot = root.nextScheduledRoot;
-          root.nextScheduledRoot = null;
+          root.nextScheduledRoot = null; // 中间任意节点
         }
         root = previousScheduledRoot.nextScheduledRoot;
       } else {
         if (remainingExpirationTime > highestPriorityWork) {
           // Update the priority, if it's higher
-          highestPriorityWork = remainingExpirationTime;
-          highestPriorityRoot = root;
+          highestPriorityWork = remainingExpirationTime; // Sync
+          highestPriorityRoot = root; // FiberRoot
         }
         if (root === lastScheduledRoot) {
-          break;
+          break; // 退出循环
         }
         if (highestPriorityWork === Sync) {
           // Sync is highest priority by definition so
@@ -2222,8 +2296,8 @@ function findHighestPriorityRoot() {
     }
   }
 
-  nextFlushedRoot = highestPriorityRoot; // null
-  nextFlushedExpirationTime = highestPriorityWork; // 0
+  nextFlushedRoot = highestPriorityRoot; // FiberRoot
+  nextFlushedExpirationTime = highestPriorityWork; // Sync
 }
 
 // TODO: This wrapper exists because many of the older tests (the ones that use
@@ -2269,9 +2343,15 @@ function performSyncWork() {
   performWork(Sync, false);
 }
 
-function performWork(minExpirationTime: ExpirationTime, isYieldy: boolean) {
+function performWork(
+  minExpirationTime: ExpirationTime, // Sync
+  isYieldy: boolean, // false
+) {
   // Keep working on roots until there's no more work, or until there's a higher
   // priority event.
+  // 继续工作直到没有更多的工作，或者直到有更高优先级的事件。
+
+  // 寻找优先级最高的跟节点
   findHighestPriorityRoot();
 
   if (isYieldy) {
@@ -2301,9 +2381,9 @@ function performWork(minExpirationTime: ExpirationTime, isYieldy: boolean) {
     }
   } else {
     while (
-      nextFlushedRoot !== null &&
-      nextFlushedExpirationTime !== NoWork &&
-      minExpirationTime <= nextFlushedExpirationTime
+      nextFlushedRoot !== null && // FiberRoot
+      nextFlushedExpirationTime !== NoWork && // Sync
+      minExpirationTime <= nextFlushedExpirationTime // ok
     ) {
       performWorkOnRoot(nextFlushedRoot, nextFlushedExpirationTime, false);
       findHighestPriorityRoot();
@@ -2376,8 +2456,8 @@ function finishRendering() {
 
 function performWorkOnRoot(
   root: FiberRoot,
-  expirationTime: ExpirationTime,
-  isYieldy: boolean,
+  expirationTime: ExpirationTime, // Sync
+  isYieldy: boolean, // false
 ) {
   invariant(
     !isRendering,
@@ -2394,7 +2474,7 @@ function performWorkOnRoot(
     // may want to perform some work without yielding, but also without
     // requiring the root to complete (by triggering placeholders).
 
-    let finishedWork = root.finishedWork;
+    let finishedWork = root.finishedWork; // null
     if (finishedWork !== null) {
       // This root is already complete. We can commit it.
       completeRoot(root, finishedWork, expirationTime);
@@ -2402,14 +2482,15 @@ function performWorkOnRoot(
       root.finishedWork = null;
       // If this root previously suspended, clear its existing timeout, since
       // we're about to try rendering again.
-      const timeoutHandle = root.timeoutHandle;
-      if (timeoutHandle !== noTimeout) {
+      const timeoutHandle = root.timeoutHandle; // -1
+      // noTimeout值为-1
+      if (timeoutHandle !== noTimeout) { // 没有超时
         root.timeoutHandle = noTimeout;
         // $FlowFixMe Complains noTimeout is not a TimeoutID, despite the check above
         cancelTimeout(timeoutHandle);
       }
       renderRoot(root, isYieldy);
-      finishedWork = root.finishedWork;
+      finishedWork = root.finishedWork; // 为root的镜像Fiber root
       if (finishedWork !== null) {
         // We've completed the root. Commit it.
         completeRoot(root, finishedWork, expirationTime);
@@ -2453,7 +2534,7 @@ function performWorkOnRoot(
 
 function completeRoot(
   root: FiberRoot,
-  finishedWork: Fiber,
+  finishedWork: Fiber, // Root的镜像Fiber Node
   expirationTime: ExpirationTime,
 ): void {
   // Check if there's a batch that matches this expiration time.
@@ -2478,6 +2559,7 @@ function completeRoot(
 
   // Check if this is a nested update (a sync update scheduled during the
   // commit phase).
+  // 检查这是否是嵌套更新
   if (root === lastCommittedRootDuringThisBatch) {
     // If the next root is the same as the previous root, this is a nested
     // update. To prevent an infinite loop, increment the nested update count.

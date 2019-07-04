@@ -159,7 +159,10 @@ if (__DEV__) {
     dlItemTagAutoclosing: null,
   };
 
-  updatedAncestorInfo = function(oldInfo, tag) {
+  updatedAncestorInfo = function(
+    oldInfo, // null
+    tag, // "div"
+  ) {
     let ancestorInfo = {...(oldInfo || emptyAncestorInfo)};
     let info = {tag};
 

@@ -48,8 +48,14 @@ if (__DEV__) {
   // Effectively, this gives us try-catch behavior without actually using
   // try-catch. Neat!
 
+  // dev环境可以与浏览器的DevTools更好地配合使用, 目的为了保留“Pause on exceptions”行为. React在invokeGuardedCallback中包装了所有用户提供的函数
+  // 生产环境直接使用try-catch
+  // 所有用户异常都被视为捕获的异常，除非开发人员采取额外步骤在捕获的异常上启用暂停，否则DevTools不会暂停
+  // 原理: 同步地将fake event分派给fake DOM node, 在fake event中调用用户提供的函数, 如果回调抛出错误, 则会"捕获", 因为发生在不同的上下文中, 它不会打断正常执行.
+
   // Check that the browser supports the APIs we need to implement our special
   // DEV version of invokeGuardedCallback
+  // 检查是否支持所用的api
   if (
     typeof window !== 'undefined' &&
     typeof window.dispatchEvent === 'function' &&
@@ -91,6 +97,7 @@ if (__DEV__) {
       // set to false. This strategy works even if the browser is flaky and
       // fails to call our global error handler, because it doesn't rely on
       // the error event at all.
+      // 跟踪用户提供的回调是否引发错误. 我们在开始时将其设置为true，然后在调用函数后立即将其设置为false, 如果函数错误，`didError`将永远不会设置为false
       let didError = true;
 
       // Keeps track of the value of window.event so that we can reset it
@@ -100,6 +107,7 @@ if (__DEV__) {
 
       // Keeps track of the descriptor of window.event to restore it after event
       // dispatching: https://github.com/facebook/react/issues/13688
+      // 追踪window.event的描述符, 在event dispathching之后恢复它
       const windowEventDescriptor = Object.getOwnPropertyDescriptor(
         window,
         'event',
@@ -108,6 +116,7 @@ if (__DEV__) {
       // Create an event handler for our fake event. We will synchronously
       // dispatch our fake event using `dispatchEvent`. Inside the handler, we
       // call the user-provided callback.
+      // 为了fake event创建一个event handler, 使用`dispatchEvent`触发fake event. 在event handler中调用用户提供的回调函数.
       const funcArgs = Array.prototype.slice.call(arguments, 3);
       function callCallback() {
         // We immediately remove the callback from event listeners so that
@@ -142,8 +151,10 @@ if (__DEV__) {
       // erroring and the code that follows the `dispatchEvent` call below. If
       // the callback doesn't error, but the error event was fired, we know to
       // ignore it because `didError` will be false, as described above.
+      // 创建一个全局错误event handler, 使用它来捕获抛出的值。 这个错误处理程序可能会多次触发;
       let error;
-      // Use this to track whether the error event is ever called.
+      // Use this to track whether the error event is ever called
+      // 使用它来跟踪是否曾调用错误事件.
       let didSetError = false;
       let isCrossOriginError = false;
 
@@ -168,14 +179,31 @@ if (__DEV__) {
       }
 
       // Create a fake event type.
+      // 创建一个fake event type
       const evtType = `react-${name ? name : 'invokeguardedcallback'}`;
 
       // Attach our event handlers
+      // 绑定事件处理程序event handlers
       window.addEventListener('error', handleWindowError);
       fakeNode.addEventListener(evtType, callCallback, false);
 
       // Synchronously dispatch our fake event. If the user-provided function
       // errors, it will trigger our global error handler.
+      /**
+       * // 创建事件.
+        var event = document.createEvent('Event');
+
+        // 初始化一个点击事件，可以冒泡，无法被取消
+        event.initEvent('click', true, false);
+
+        // 设置事件监听.
+        elem.addEventListener('click', function (e) {
+          // e.target 就是监听事件目标元素
+        }, false);
+
+        // 触发事件监听
+        elem.dispatchEvent(event);
+       */
       evt.initEvent(evtType, false, false);
       fakeNode.dispatchEvent(evt);
 

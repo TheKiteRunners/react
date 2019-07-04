@@ -356,7 +356,9 @@ export function stopPhaseTimer(): void {
   }
 }
 
-export function startWorkLoopTimer(nextUnitOfWork: Fiber | null): void {
+export function startWorkLoopTimer(
+  nextUnitOfWork: Fiber | null, // 镜像FiberNode
+): void {
   if (enableUserTimingAPI) {
     currentFiber = nextUnitOfWork;
     if (!supportsUserTiming) {

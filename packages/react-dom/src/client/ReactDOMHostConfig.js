@@ -109,11 +109,11 @@ function shouldAutoFocusHostComponent(type: string, props: Props): boolean {
 export * from 'shared/HostConfigWithNoPersistence';
 
 export function getRootHostContext(
-  rootContainerInstance: Container,
+  rootContainerInstance: Container, // 真实dom
 ): HostContext {
   let type;
   let namespace;
-  const nodeType = rootContainerInstance.nodeType;
+  const nodeType = rootContainerInstance.nodeType; // 元素节点返回1
   switch (nodeType) {
     case DOCUMENT_NODE:
     case DOCUMENT_FRAGMENT_NODE: {
@@ -127,14 +127,14 @@ export function getRootHostContext(
         nodeType === COMMENT_NODE
           ? rootContainerInstance.parentNode
           : rootContainerInstance;
-      const ownNamespace = container.namespaceURI || null;
-      type = container.tagName;
-      namespace = getChildNamespace(ownNamespace, type);
+      const ownNamespace = container.namespaceURI || null; // "http://www.w3.org/1999/xhtml"
+      type = container.tagName; // "DIV"
+      namespace = getChildNamespace(ownNamespace, type); // 此处主要是判断是SVG还是Math, 传入的是DIV, 返回的还是"http://www.w3.org/1999/xhtml"
       break;
     }
   }
   if (__DEV__) {
-    const validatedTag = type.toLowerCase();
+    const validatedTag = type.toLowerCase(); // "div"
     const ancestorInfo = updatedAncestorInfo(null, validatedTag);
     return {namespace, ancestorInfo};
   }
@@ -282,15 +282,18 @@ export function shouldDeprioritizeSubtree(type: string, props: Props): boolean {
 }
 
 export function createTextInstance(
-  text: string,
-  rootContainerInstance: Container,
+  text: string, // "hello"
+  rootContainerInstance: Container, // "真实DOM"
   hostContext: HostContext,
-  internalInstanceHandle: Object,
+  internalInstanceHandle: Object, // Text FiberNode
 ): TextInstance {
   if (__DEV__) {
     const hostContextDev = ((hostContext: any): HostContextDev);
+    // 检查当前节点是否可以放在父节点下
     validateDOMNesting(null, text, hostContextDev.ancestorInfo);
   }
+  // 下面设个函数获取document, 调用其createTextNode方法创建text节点
+  // 返回真实Dom Text节点
   const textNode: TextInstance = createTextNode(text, rootContainerInstance);
   precacheFiberNode(internalInstanceHandle, textNode);
   return textNode;

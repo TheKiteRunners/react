@@ -18962,7 +18962,6 @@ function commitRoot(root, finishedWork) {
   isWorking = true;
   isCommitting$1 = true;
   startCommitTimer();
-
   !(root.current !== finishedWork) ? invariant(false, 'Cannot commit the same tree as before. This is probably a bug related to the return field. This error is likely caused by a bug in React. Please file an issue.') : void 0;
   var committedExpirationTime = root.pendingCommitExpirationTime;
   !(committedExpirationTime !== NoWork) ? invariant(false, 'Cannot commit an incomplete root. This error is likely caused by a bug in React. Please file an issue.') : void 0;
@@ -19005,7 +19004,6 @@ function commitRoot(root, finishedWork) {
   }
 
   prepareForCommit(root.containerInfo);
-
   // Invoke instances of getSnapshotBeforeUpdate before mutation.
   nextEffect = firstEffect;
   startCommitSnapshotEffectsTimer();
@@ -19051,6 +19049,7 @@ function commitRoot(root, finishedWork) {
         _error = clearCaughtError();
       }
     }
+
     if (_didError) {
       !(nextEffect !== null) ? invariant(false, 'Should have next effect. This error is likely caused by a bug in React. Please file an issue.') : void 0;
       captureCommitPhaseError(nextEffect, _error);
@@ -19063,11 +19062,13 @@ function commitRoot(root, finishedWork) {
   stopCommitHostEffectsTimer();
 
   resetAfterCommit(root.containerInfo);
+  debugger;
 
   // The work-in-progress tree is now the current tree. This must come after
   // the first pass of the commit phase, so that the previous tree is still
   // current during componentWillUnmount, but before the second pass, so that
   // the finished work is current during componentDidMount/Update.
+  // 注意, 第二次pass之前把原来的Root Fiber Node换成了镜像Fiber Node
   root.current = finishedWork;
 
   // In the second pass we'll perform all life-cycles and ref callbacks.
@@ -19249,6 +19250,7 @@ function completeUnitOfWork(workInProgress) {
   // Attempt to complete the current unit of work, then move to the
   // next sibling. If there are no more siblings, return to the
   // parent fiber.
+
   while (true) {
     // The current, flushed, state of this fiber is the alternate.
     // Ideally nothing should rely on this, but relying on it here
@@ -19476,7 +19478,6 @@ function performUnitOfWork(workInProgress) {
   }
 
   ReactCurrentOwner$2.current = null;
-
   return next;
 }
 

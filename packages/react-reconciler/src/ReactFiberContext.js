@@ -132,9 +132,9 @@ function popTopLevelContextObject(fiber: Fiber): void {
 }
 
 function pushTopLevelContextObject(
-  fiber: Fiber,
-  context: Object,
-  didChange: boolean,
+  fiber: Fiber, // 镜像FiberNode
+  context: Object, // react.context
+  didChange: boolean, // false
 ): void {
   invariant(
     contextStackCursor.current === emptyContextObject,
@@ -142,6 +142,7 @@ function pushTopLevelContextObject(
       'This error is likely caused by a bug in React. Please file an issue.',
   );
 
+  // 当前context和FiberNode入栈valueStack和fiberStack
   push(contextStackCursor, context, fiber);
   push(didPerformWorkStackCursor, didChange, fiber);
 }

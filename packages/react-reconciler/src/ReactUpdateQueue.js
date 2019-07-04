@@ -346,14 +346,14 @@ function ensureWorkInProgressQueueIsAClone<State>(
 }
 
 function getStateFromUpdate<State>(
-  workInProgress: Fiber,
+  workInProgress: Fiber, // 镜像FiberNode 
   queue: UpdateQueue<State>,
   update: Update<State>,
-  prevState: State,
-  nextProps: any,
-  instance: any,
+  prevState: State, // null
+  nextProps: any, // null
+  instance: any, // null
 ): any {
-  switch (update.tag) {
+  switch (update.tag) { // 0
     case ReplaceState: {
       const payload = update.payload;
       if (typeof payload === 'function') {
@@ -383,9 +383,9 @@ function getStateFromUpdate<State>(
     }
     // Intentional fallthrough
     case UpdateState: {
-      const payload = update.payload;
+      const payload = update.payload; // 使用React编写的组件
       let partialState;
-      if (typeof payload === 'function') {
+      if (typeof payload === 'function') { // 为了简单例子就是个字符串, 不进入该循环
         // Updater function
         if (__DEV__) {
           enterDisallowedContextReadInDEV();
@@ -421,14 +421,15 @@ function getStateFromUpdate<State>(
 }
 
 export function processUpdateQueue<State>(
-  workInProgress: Fiber,
+  workInProgress: Fiber, // 镜像FiberNode
   queue: UpdateQueue<State>,
-  props: any,
-  instance: any,
-  renderExpirationTime: ExpirationTime,
+  props: any, // null
+  instance: any, // null
+  renderExpirationTime: ExpirationTime, // Sync
 ): void {
   hasForceUpdate = false;
 
+  // 保证镜像FiberNode和真正FiberNode的UpdateQueue是不同的对象地址, 如果发现相同了, clone一个新的
   queue = ensureWorkInProgressQueueIsAClone(workInProgress, queue);
 
   if (__DEV__) {
@@ -441,12 +442,14 @@ export function processUpdateQueue<State>(
   let newExpirationTime = NoWork;
 
   // Iterate through the list of updates to compute the result.
+  // 在1.3.3.2中的update对象
   let update = queue.firstUpdate;
   let resultState = newBaseState;
   while (update !== null) {
     const updateExpirationTime = update.expirationTime;
     if (updateExpirationTime < renderExpirationTime) {
       // This update does not have sufficient priority. Skip it.
+      // 这个更新没有足够的优先级, 跳过
       if (newFirstUpdate === null) {
         // This is the first skipped update. It will be the first update in
         // the new list.
@@ -470,10 +473,11 @@ export function processUpdateQueue<State>(
         resultState,
         props,
         instance,
-      );
-      const callback = update.callback;
+      ); // 返回{element: "hello"}
+      const callback = update.callback; // 为ReactWork._onCommit
       if (callback !== null) {
-        workInProgress.effectTag |= Callback;
+        // 这里的Callback是常量值为0b000000100000, workInProgress.effectTag为0
+        workInProgress.effectTag |= Callback; // 或操作
         // Set this to null, in case it was mutated during an aborted render.
         update.nextEffect = null;
         if (queue.lastEffect === null) {
@@ -490,7 +494,7 @@ export function processUpdateQueue<State>(
 
   // Separately, iterate though the list of captured updates.
   let newFirstCapturedUpdate = null;
-  update = queue.firstCapturedUpdate;
+  update = queue.firstCapturedUpdate; // null
   while (update !== null) {
     const updateExpirationTime = update.expirationTime;
     if (updateExpirationTime < renderExpirationTime) {
@@ -551,9 +555,9 @@ export function processUpdateQueue<State>(
     newBaseState = resultState;
   }
 
-  queue.baseState = newBaseState;
-  queue.firstUpdate = newFirstUpdate;
-  queue.firstCapturedUpdate = newFirstCapturedUpdate;
+  queue.baseState = newBaseState; // resultState
+  queue.firstUpdate = newFirstUpdate; // null
+  queue.firstCapturedUpdate = newFirstCapturedUpdate; // null
 
   // Set the remaining expiration time to be whatever is remaining in the queue.
   // This should be fine because the only two other things that contribute to

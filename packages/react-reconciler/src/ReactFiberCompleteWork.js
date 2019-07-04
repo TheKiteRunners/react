@@ -540,11 +540,11 @@ if (supportsMutation) {
 }
 
 function completeWork(
-  current: Fiber | null,
-  workInProgress: Fiber,
+  current: Fiber | null, // null
+  workInProgress: Fiber, // Text Fiber Node
   renderExpirationTime: ExpirationTime,
 ): Fiber | null {
-  const newProps = workInProgress.pendingProps;
+  const newProps = workInProgress.pendingProps; // "hello"
 
   switch (workInProgress.tag) {
     case IndeterminateComponent:
@@ -663,7 +663,7 @@ function completeWork(
       break;
     }
     case HostText: {
-      let newText = newProps;
+      let newText = newProps; // "hello"
       if (current && workInProgress.stateNode != null) {
         const oldText = current.memoizedProps;
         // If we have an alternate, that means this is an update and we need
@@ -678,9 +678,13 @@ function completeWork(
           );
           // This can happen when we abort work.
         }
-        const rootContainerInstance = getRootHostContainer();
+        // 检查Root是否正确并返回
+        const rootContainerInstance = getRootHostContainer(); // 真实DOM
         const currentHostContext = getHostContext();
-        let wasHydrated = popHydrationState(workInProgress);
+
+        // hydrate是 React 中提供在初次渲染的时候，去复用原本已经存在的 DOM 节点，减少重新生成节点以及删除原本 DOM 节点的开销，来加速初次渲染的功能
+        // 这个下次有机会整体看吧, 下面这个函数false
+        let wasHydrated = popHydrationState(workInProgress); // false
         if (wasHydrated) {
           if (prepareToHydrateHostTextInstance(workInProgress)) {
             markUpdate(workInProgress);

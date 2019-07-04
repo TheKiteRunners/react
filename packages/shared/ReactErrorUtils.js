@@ -38,6 +38,9 @@ const reporter = {
  * @param {*} context The context to use when calling the function
  * @param {...*} args Arguments for function
  */
+
+ // 调用函数，同时防止其中发生的错误 
+ // 如果抛出则返回错误，否则返回null, 在生产中，这是使用try - catch实现的
 export function invokeGuardedCallback<A, B, C, D, E, F, Context>(
   name: string | null,
   func: (a: A, b: B, c: C, d: D, e: E, f: F) => mixed,
